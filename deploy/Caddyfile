@@ -51,7 +51,7 @@ rachmat-layli.space {
 	handle @cron {
 		@notLocal not remote_ip 127.0.0.1 ::1
 		respond @notLocal 403
-		reverse_proxy 127.0.0.1:3000
+		reverse_proxy 127.0.0.1:{$WALIMAH_PORT:3000}
 	}
 
 	# Aset statis Next bersifat immutable (nama berisi hash konten).
@@ -62,7 +62,12 @@ rachmat-layli.space {
 	@admin path /admin* /api/admin/*
 	header @admin Cache-Control "private, no-store"
 
-	reverse_proxy 127.0.0.1:3000 {
+	# Porta backend berasal dari /etc/walimah/port, yang ditulis
+	# deploy/resolve-port.sh dan dibaca systemd lewat drop-in caddy-port.conf.
+	# VPS ini menampung banyak aplikasi, jadi 3000 tidak bisa diasumsikan bebas.
+	# Nilai 3000 di bawah hanyalah cadangan agar `caddy validate` tetap jalan
+	# tanpa env; nilai sesungguhnya selalu datang dari berkas itu.
+	reverse_proxy 127.0.0.1:{$WALIMAH_PORT:3000} {
 		header_up X-Real-IP {remote_host}
 	}
 

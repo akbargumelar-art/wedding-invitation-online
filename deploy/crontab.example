@@ -5,6 +5,12 @@
 # CRON_SECRET dibaca dari /etc/walimah/env. Endpoint /api/cron/* hanya menerima
 # permintaan dari localhost (lihat deploy/Caddyfile), jadi rahasia ini tidak
 # pernah melintasi jaringan.
+#
+# PORT juga datang dari berkas yang sama — jangan pernah menuliskan angka porta
+# langsung di sini. VPS ini menampung banyak aplikasi, jadi porta Walimah
+# dipilih deploy/resolve-port.sh dan bisa berubah; entri yang mematok angka
+# akan gagal diam-diam, dan gejalanya baru terasa sebagai backup yang tidak
+# pernah jadi atau notifikasi yang tidak pernah terkirim.
 # =============================================================================
 
 SHELL=/bin/bash
@@ -12,15 +18,19 @@ SHELL=/bin/bash
 #   sudo timedatectl set-timezone Asia/Jakarta
 
 # Backup harian 02:00 WIB — VACUUM INTO + retensi 14 versi + hapus bukti kedaluwarsa.
-0 2 * * * . /etc/walimah/env && curl -fsS -m 120 -X POST http://127.0.0.1:3000/api/cron/backup -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
+0 2 * * * . /etc/walimah/env && curl -fsS -m 120 -X POST http://127.0.0.1:${PORT}/api/cron/backup -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
 
 # Sinkronisasi ke tab Export di Google Sheet setiap 6 jam (idempoten).
-0 */6 * * * . /etc/walimah/env && curl -fsS -m 120 -X POST http://127.0.0.1:3000/api/cron/export -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
+0 */6 * * * . /etc/walimah/env && curl -fsS -m 120 -X POST http://127.0.0.1:${PORT}/api/cron/export -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
 
 # Kirim ulang notifikasi WhatsApp yang gagal, setiap 10 menit.
 # Pengiriman normal terjadi langsung setelah tamu mengirim; ini jaring pengaman
 # untuk saat gateway sedang mati.
-*/10 * * * * . /etc/walimah/env && curl -fsS -m 60 -X POST http://127.0.0.1:3000/api/cron/notify -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
+*/10 * * * * . /etc/walimah/env && curl -fsS -m 60 -X POST http://127.0.0.1:${PORT}/api/cron/notify -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
 
 # Cek kesehatan setiap 5 menit; systemd yang merestart bila mati, ini hanya jejak log.
-*/5 * * * * curl -fsS -m 10 -o /dev/null http://127.0.0.1:3000/ || echo "$(date -Is) walimah tidak merespons" >> /var/log/walimah-cron.log
+# Berbeda dari tiga entri di atas, baris ini tidak butuh CRON_SECRET — tapi env
+# tetap harus di-source, sebab tanpa itu ${PORT} kosong dan URL-nya berubah
+# menjadi http://127.0.0.1:/ yang selalu gagal, sehingga log penuh laporan mati
+# palsu justru saat aplikasi sehat.
+*/5 * * * * . /etc/walimah/env && { curl -fsS -m 10 -o /dev/null http://127.0.0.1:${PORT}/ || echo "$(date -Is) walimah tidak merespons" >> /var/log/walimah-cron.log; }
