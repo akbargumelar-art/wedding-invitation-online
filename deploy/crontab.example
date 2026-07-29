@@ -1,0 +1,26 @@
+# =============================================================================
+# Cron Walimah (US-16). Pasang sebagai root:
+#   sudo crontab -e
+#
+# CRON_SECRET dibaca dari /etc/walimah/env. Endpoint /api/cron/* hanya menerima
+# permintaan dari localhost (lihat deploy/Caddyfile), jadi rahasia ini tidak
+# pernah melintasi jaringan.
+# =============================================================================
+
+SHELL=/bin/bash
+# Waktu di bawah mengikuti zona server. Setel server ke Asia/Jakarta:
+#   sudo timedatectl set-timezone Asia/Jakarta
+
+# Backup harian 02:00 WIB — VACUUM INTO + retensi 14 versi + hapus bukti kedaluwarsa.
+0 2 * * * . /etc/walimah/env && curl -fsS -m 120 -X POST http://127.0.0.1:3000/api/cron/backup -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
+
+# Sinkronisasi ke tab Export di Google Sheet setiap 6 jam (idempoten).
+0 */6 * * * . /etc/walimah/env && curl -fsS -m 120 -X POST http://127.0.0.1:3000/api/cron/export -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
+
+# Kirim ulang notifikasi WhatsApp yang gagal, setiap 10 menit.
+# Pengiriman normal terjadi langsung setelah tamu mengirim; ini jaring pengaman
+# untuk saat gateway sedang mati.
+*/10 * * * * . /etc/walimah/env && curl -fsS -m 60 -X POST http://127.0.0.1:3000/api/cron/notify -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
+
+# Cek kesehatan setiap 5 menit; systemd yang merestart bila mati, ini hanya jejak log.
+*/5 * * * * curl -fsS -m 10 -o /dev/null http://127.0.0.1:3000/ || echo "$(date -Is) walimah tidak merespons" >> /var/log/walimah-cron.log

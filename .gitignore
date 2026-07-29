@@ -1,0 +1,47 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Kredensial & rahasia — JANGAN PERNAH di-commit (PRD §4.5)
+.env
+.env.*
+!.env.example
+/credentials
+credentials.json
+*.pem
+*.key
+
+# Data runtime — hanya ada di server.
+# Satu-satunya berkas di /data yang ikut di-commit adalah seed.json: ia dibaca
+# saat runtime sebagai lapis fallback terakhir (lihat src/lib/content/snapshot.ts),
+# jadi ia harus ikut ter-pull ke VPS.
+/data/*
+!/data/seed.json
+/var
+
+# Test & build artifacts
+/coverage
+/test-results
+/playwright-report
+/blob-report
+/.playwright
+
+# Bukti verifikasi visual — dihasilkan ulang dengan scripts/screenshots.ts
+/artifacts
+
+# Izin Claude Code khusus mesin ini (berisi path absolut Windows).
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea

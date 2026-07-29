@@ -1,0 +1,77 @@
+# =============================================================================
+# Caddy 2 — reverse proxy + HTTPS otomatis (PRD §4.5, Lampiran E)
+#
+# Pasang di /etc/caddy/Caddyfile, lalu:
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Nama domain ditulis TANPA skema, sehingga Caddy menerbitkan sertifikat
+# Let's Encrypt sendiri dan mengalihkan http:// ke https://. Itu bukan sekadar
+# praktik baik di sini: cookie sesi admin memakai flag Secure di produksi
+# (src/lib/auth.ts:126), jadi di atas http:// polos login admin selalu gagal.
+# Syaratnya A record rachmat-layli.space (dan www) sudah menunjuk ke IP VPS,
+# serta port 80 dan 443 terbuka di UFW.
+# =============================================================================
+
+www.rachmat-layli.space {
+	redir https://rachmat-layli.space{uri} permanent
+}
+
+rachmat-layli.space {
+	encode zstd gzip
+
+	# Batas ukuran body 3 MB: cukup untuk bukti transfer 2 MB plus overhead
+	# multipart, dan menutup upaya membanjiri disk lewat unggahan raksasa.
+	request_body {
+		max_size 3MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+
+		# CSP: hanya domain sendiri, plus embed peta Google.
+		# - 'unsafe-inline' pada style-src dibutuhkan Next untuk style inline
+		#   pada komponen gambar; script-src TIDAK memakai 'unsafe-inline'.
+		# - Tambahkan host gambar ke img-src bila galeri memakai URL eksternal
+		#   (samakan dengan remotePatterns di next.config.ts).
+		# Catatan: notifikasi WhatsApp dikirim dari server (Node), bukan dari
+		# browser, jadi connect-src tidak perlu memuat host gateway.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self'; frame-src https://www.google.com https://maps.google.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+		# Jangan bocorkan versi server.
+		-Server
+	}
+
+	# Endpoint cron hanya boleh dipanggil dari mesin itu sendiri.
+	@cron path /api/cron/*
+	handle @cron {
+		@notLocal not remote_ip 127.0.0.1 ::1
+		respond @notLocal 403
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	# Aset statis Next bersifat immutable (nama berisi hash konten).
+	@nextStatic path /_next/static/*
+	header @nextStatic Cache-Control "public, max-age=31536000, immutable"
+
+	# Halaman admin tidak boleh disimpan cache mana pun.
+	@admin path /admin* /api/admin/*
+	header @admin Cache-Control "private, no-store"
+
+	reverse_proxy 127.0.0.1:3000 {
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output file /var/log/caddy/walimah.log {
+			roll_size 10MB
+			roll_keep 5
+		}
+		# Jangan catat query string: /api/revalidate?secret=… berisi rahasia.
+		format json
+	}
+}

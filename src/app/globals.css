@@ -1,0 +1,599 @@
+@import 'tailwindcss';
+
+/* =============================================================================
+   Design token — sumber kebenaran tunggal untuk warna, tipografi, dan ritme.
+   Kustomisasi visual dilakukan DI SINI, bukan lewat editor WYSIWYG (PRD §2.4).
+   ============================================================================= */
+@theme {
+  /* Palet: jamrud cerah + gading hangat + aksen emas sampanye.
+     Semua pasangan teks/latar di bawah lolos kontras WCAG AA — angka rasionya
+     dicantumkan agar penyesuaian berikutnya tidak menurunkannya diam-diam. */
+  --color-ink: #14302a; /* 13,8:1 di atas cream */
+  --color-ink-soft: #3c574c; /* 7,7:1 */
+  /* Teks petunjuk 13px. Nilainya ditentukan oleh latar TERTERANG yang mungkin,
+     yaitu jade-50 di seksi RSVP — bukan oleh latar gading. Menaikkannya satu
+     tingkat saja menjatuhkan pasangan itu di bawah 4,5:1. */
+  --color-ink-muted: #5a7469; /* 5,0:1 di gading, 4,7:1 di jade-50 */
+
+  --color-cream: #fffcf7;
+  --color-cream-deep: #fbf4e9;
+  --color-parchment: #ffffff;
+
+  --color-jade-50: #eff8f2;
+  --color-jade-100: #d8eee1;
+  --color-jade-200: #aedcc3;
+  --color-jade-300: #7cc6a1;
+  --color-jade-400: #4eae82;
+  --color-jade-500: #2e9b74;
+  --color-jade-600: #1f7a5a;
+  --color-jade-700: #196349; /* latar tombol utama — 7,1:1 dengan teks cream */
+  --color-jade-800: #144f3b;
+  --color-jade-900: #103c2d;
+
+  /* Emas terang dipakai untuk ornamen dan garis (grafis, ambang 3:1).
+     `gold-600` adalah satu-satunya yang boleh menjadi teks di atas latar terang;
+     nilainya sengaja tetap gelap agar lolos 4,7:1. */
+  --color-gold-300: #f2dca8;
+  --color-gold-400: #e0b95f;
+  --color-gold-500: #c08f2f;
+  --color-gold-600: #8a6f34;
+
+  --color-danger: #9b2c2c;
+  --color-success: #1f7a5a;
+
+  /* Tipografi — 2 keluarga latin + 1 arab, semua self-host lewat next/font. */
+  --font-display: var(--font-cormorant), 'Times New Roman', serif;
+  --font-body: var(--font-jakarta), system-ui, -apple-system, sans-serif;
+  --font-arabic: var(--font-amiri), 'Traditional Arabic', serif;
+
+  /* Ritme vertikal seksi */
+  --spacing-section: 5rem;
+  --spacing-section-lg: 7rem;
+
+  --radius-card: 1rem;
+  --radius-pill: 999px;
+
+  --shadow-soft: 0 1px 2px rgb(16 60 45 / 0.04), 0 8px 24px -12px rgb(16 60 45 / 0.18);
+  --shadow-lift: 0 2px 4px rgb(16 60 45 / 0.06), 0 16px 40px -16px rgb(16 60 45 / 0.28);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* =============================================================================
+   Dasar
+   ============================================================================= */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.7;
+    overflow-x: hidden;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Dikunci sampai tamu menekan "Buka Undangan" (US-02). */
+  body[data-locked='true'] {
+    overflow: hidden;
+    height: 100svh;
+  }
+
+  /* Mode buku tidak punya scroll dokumen sama sekali: tiap halaman setinggi
+     layar dan menggulir di dalam dirinya sendiri bila isinya panjang. */
+  body[data-view='book'] {
+    overflow: hidden;
+    height: 100svh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-jade-600);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  /* Hormati preferensi pengurangan gerak. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* =============================================================================
+   Komponen berulang
+   ============================================================================= */
+@layer components {
+  .container-invite {
+    width: 100%;
+    max-width: 34rem;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  .section {
+    padding-block: var(--spacing-section);
+
+    /* Undangan ini satu halaman panjang: tanpa ini browser melakukan layout dan
+       paint untuk seluruh seksi sekaligus, padahal tamu baru melihat sampul.
+       `auto` membuat browser melewati pekerjaan itu sampai seksi mendekati
+       viewport, dan mengingat tingginya setelah sekali dirender sehingga
+       scrollbar tidak melompat. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 640px;
+  }
+
+  @media (min-width: 768px) {
+    .section {
+      padding-block: var(--spacing-section-lg);
+    }
+  }
+
+  .arabic {
+    font-family: var(--font-arabic);
+    font-size: 1.5rem; /* 24px — di atas minimum 22px pada US-03 */
+    line-height: 2.2;
+    letter-spacing: 0;
+  }
+
+  @media (min-width: 768px) {
+    .arabic {
+      font-size: 1.875rem;
+    }
+  }
+
+  /* Cormorant Garamond memakai angka gaya lama (oldstyle) secara bawaan —
+     bagus untuk teks berjalan, tapi salah untuk angka yang harus dibaca cepat
+     seperti hitung mundur dan angka ringkasan. */
+  .numeric {
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .eyebrow {
+    font-family: var(--font-body);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-gold-600);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem; /* target sentuh ≥ 44px */
+    padding-inline: 1.5rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1;
+    transition:
+      background-color 0.2s var(--ease-out-soft),
+      color 0.2s var(--ease-out-soft),
+      transform 0.2s var(--ease-out-soft),
+      box-shadow 0.2s var(--ease-out-soft);
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background-color: var(--color-jade-700);
+    color: var(--color-cream);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-jade-800);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--color-jade-800);
+    border: 1px solid var(--color-jade-200);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--color-jade-50);
+  }
+
+  .card {
+    background-color: var(--color-parchment);
+    border: 1px solid var(--color-jade-100);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .field-label {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-ink-soft);
+  }
+
+  .field-input {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.625rem 0.875rem;
+    background-color: var(--color-parchment);
+    border: 1px solid var(--color-jade-200);
+    border-radius: 0.625rem;
+    font-size: 1rem; /* ≥16px: cegah zoom otomatis di iOS */
+    color: var(--color-ink);
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .field-input::placeholder {
+    color: var(--color-ink-muted);
+  }
+
+  .field-input:focus {
+    outline: none;
+    border-color: var(--color-jade-500);
+    box-shadow: 0 0 0 3px rgb(46 155 116 / 0.2);
+  }
+
+  .field-input[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
+
+  .field-error {
+    margin-top: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--color-danger);
+  }
+
+  .field-hint {
+    margin-top: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--color-ink-muted);
+  }
+
+  /* ===========================================================================
+     Mode buku — tiap seksi menjadi satu lembar setinggi layar.
+
+     Markup-nya sama persis dengan mode gulir; hanya tata letaknya yang berbeda,
+     sehingga tidak ada isi undangan yang ditulis dua kali. Lihat BookShell.tsx.
+     =========================================================================== */
+
+  /* Mode gulir: pembungkus halaman dihapus dari layout sepenuhnya, jadi seksi
+     mengalir persis seperti sebelum mode buku ada. */
+  .book-root[data-view='scroll'] .book-page {
+    display: contents;
+  }
+
+  .book-root[data-view='book'] .book-stage {
+    position: relative;
+    height: 100svh;
+    /* Halaman yang sedang berputar menonjol keluar kotak; tanpa ini browser
+       memunculkan scrollbar horizontal di tengah animasi. */
+    overflow: hidden;
+    /* Titik pandang di tepi kiri = engsel buku. */
+    perspective: 1600px;
+    perspective-origin: left center;
+  }
+
+  /* Punggung buku di sisi engsel: garis lipatan tegas lalu bayangan yang
+     melembut ke dalam halaman. */
+  .book-root[data-view='book'] .book-stage::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    z-index: 5;
+    width: 1.25rem;
+    pointer-events: none;
+    background: linear-gradient(
+      to right,
+      rgb(16 60 45 / 0.28),
+      rgb(16 60 45 / 0.1) 35%,
+      transparent
+    );
+  }
+
+  .book-root[data-view='book'] .book-page {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background-color: var(--color-cream);
+    transform-origin: left center;
+    /* Begitu lembar melewati 90 derajat, sisi belakangnya berhenti dilukis —
+       inilah yang membuat gerakannya terbaca sebagai membalik halaman, bukan
+       sekadar menggeser. */
+    backface-visibility: hidden;
+    /* Lembar melayang di atas tumpukan di bawahnya. */
+    box-shadow: 0 0 2.5rem -0.75rem rgb(16 60 45 / 0.4);
+    transition:
+      transform 0.7s var(--ease-out-soft),
+      opacity 0.4s var(--ease-out-soft);
+  }
+
+  .book-root[data-view='book'] .book-page:focus-visible {
+    outline: none;
+  }
+
+  /* Seksi mengisi seluruh lembar supaya latar gelapnya (mis. penutup) tidak
+     berhenti di tengah halaman. `min-height` — bukan `height` — agar seksi yang
+     isinya panjang tetap tumbuh dan digulir, bukan terpotong.
+
+     `flex: none` wajib. Lembar adalah kotak flex setinggi layar, dan anak flex
+     boleh menyusut secara bawaan: tanpa ini seksi yang isinya panjang diperas
+     ke tinggi layar, lalu `justify-content: center` memotong bagian atas DAN
+     bawahnya sekaligus. */
+  .book-root[data-view='book'] .book-page > * {
+    flex: none;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* Ruang aman untuk tombol ganti tampilan di pojok kanan atas dan bilah
+     navigasi di bawah. Ruang itu diletakkan pada seksi, bukan pada lembarnya:
+     kalau di lembar, latar seksi (mis. hijau muda pada Lokasi) berhenti di batas
+     padding dan menyisakan pita krem di tepi layar. */
+  .book-root[data-view='book'] .book-page .section {
+    padding-top: 3.5rem;
+    padding-bottom: 5rem;
+    /* `.section` memakai content-visibility: auto untuk halaman panjang. Di mode
+       buku itu justru merugikan: layout lembar yang belum aktif dilewati, dan
+       Intersection Observer milik Reveal tidak pernah menyala — isinya tetap
+       transparan setelah halaman dibalik. */
+    content-visibility: visible;
+  }
+
+  .book-root[data-view='book'][data-draft='true'] .book-page .section {
+    padding-top: 5.25rem;
+  }
+
+  /* Selubung untuk panah pembalik yang mengambang di tepi kiri dan kanan lembar.
+     Padding bawaan kontainer (1,5rem) lebih sempit daripada panahnya, jadi teks
+     yang tidak dibungkus kartu — paragraf pembuka Amplop, misalnya — tertimpa
+     lingkaran panah tepat di tengah layar.
+
+     Hanya di layar sempit: mulai 640px kontainer berhenti di 34rem dan sudah
+     duduk jauh di dalam, sehingga padding tambahan cuma mempersempit tanpa
+     alasan. */
+  @media (max-width: 639px) {
+    .book-root[data-view='book'] .book-page .container-invite {
+      padding-inline: 2.75rem;
+    }
+  }
+
+  .book-root[data-view='book'] .book-page[data-state='active'] {
+    z-index: 2;
+    transform: none;
+    opacity: 1;
+  }
+
+  /* Sudah dibalik ke kiri, tersingkap di balik punggung buku. */
+  .book-root[data-view='book'] .book-page[data-state='prev'] {
+    z-index: 3;
+    transform: rotateY(-118deg);
+    pointer-events: none;
+  }
+
+  /* Masih tertumpuk di bawah lembar yang sedang dibaca, sedikit terbuka pada
+     engselnya. Kemiringan kecil itu yang membuat lembar berikutnya terlihat
+     "turun dan mendatar" saat menjadi aktif, bukan sekadar muncul begitu saja. */
+  .book-root[data-view='book'] .book-page[data-state='next'] {
+    z-index: 1;
+    transform: rotateY(-9deg) translateZ(-2.5rem);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Pembungkus setinggi layar, semata-mata agar panah di tepi punya acuan
+     "tengah layar". Ia tidak boleh menangkap sentuhan: seluruh isi lembar ada di
+     bawahnya, termasuk gestur geser untuk membalik halaman. */
+  .book-nav {
+    position: fixed;
+    inset: 0;
+    /* Di bawah sampul (z-50) dan lightbox (z-80), di atas isi halaman. */
+    z-index: 40;
+    pointer-events: none;
+  }
+
+  .book-nav > * {
+    pointer-events: auto;
+  }
+
+  .book-nav-bar {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    padding: 0.5rem 0.75rem;
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--color-jade-100);
+    background-color: color-mix(in srgb, var(--color-cream) 92%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Panah pembalik di tepi kiri dan kanan.
+     Bidang sentuhnya 44px penuh menempel di tepi layar, tetapi lingkaran yang
+     terlihat hanya 2rem dan berada di tengahnya — jadi lingkaran kiri berhenti
+     di 38px. Padding kontainer sendiri cuma 1,5rem (24px), sehingga isi yang
+     TIDAK berada di dalam kartu masih tertimpa; selubungnya diatur terpisah di
+     aturan .container-invite di bawah. */
+  .book-arrow {
+    position: absolute;
+    top: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: translateY(-50%);
+    color: var(--color-jade-800);
+    transition: opacity 0.25s ease;
+  }
+
+  .book-arrow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid color-mix(in srgb, var(--color-jade-300) 55%, transparent);
+    background-color: color-mix(in srgb, var(--color-parchment) 80%, transparent);
+    backdrop-filter: blur(6px);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .book-arrow > span {
+    position: relative;
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  .book-arrow-prev {
+    left: 0;
+  }
+
+  .book-arrow-next {
+    right: 0;
+  }
+
+  .book-arrow:active:not(:disabled) > span {
+    transform: scale(0.88);
+  }
+
+  /* Tetap di tempatnya saat tidak tersedia — menghilangkannya membuat tepi layar
+     terlihat berubah-ubah setiap kali halaman dibalik. */
+  .book-arrow:disabled {
+    opacity: 0.22;
+  }
+
+  /* Titik navigasi: bidang sentuhnya jauh lebih besar dari titiknya sendiri,
+     karena sembilan target 8px berjejer mustahil ditekan dengan jempol. */
+  .book-dot {
+    position: relative;
+    width: 1rem;
+    height: 1.75rem;
+    border-radius: var(--radius-pill);
+  }
+
+  .book-dot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-jade-200);
+    transition:
+      background-color 0.2s ease,
+      width 0.2s var(--ease-out-soft);
+  }
+
+  .book-dot[data-active='true']::before {
+    width: 1rem;
+    background-color: var(--color-gold-500);
+  }
+
+  @media (min-width: 380px) {
+    .book-dot {
+      width: 1.25rem;
+    }
+
+    .book-dot[data-active='true']::before {
+      width: 1.125rem;
+    }
+  }
+}
+
+/* =============================================================================
+   Utilitas & animasi
+   ============================================================================= */
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Dipakai oleh Reveal: elemen muncul saat masuk viewport (Intersection Observer). */
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.7s var(--ease-out-soft),
+      transform 0.7s var(--ease-out-soft);
+    will-change: opacity, transform;
+  }
+
+  .reveal[data-visible='true'] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Bilah navigasi buku menempati sudut yang biasanya dipakai tombol musik. */
+  body[data-view='book'] .audio-toggle {
+    bottom: 5.5rem;
+  }
+
+  .ornament-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    color: var(--color-gold-400);
+  }
+
+  .ornament-divider::before,
+  .ornament-divider::after {
+    content: '';
+    height: 1px;
+    width: 3.5rem;
+    background: linear-gradient(to right, transparent, currentColor);
+  }
+
+  .ornament-divider::after {
+    background: linear-gradient(to left, transparent, currentColor);
+  }
+}

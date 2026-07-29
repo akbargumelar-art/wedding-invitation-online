@@ -1,0 +1,79 @@
+# =============================================================================
+# systemd unit — Walimah (PRD §4.1: auto-restart, log ke journald)
+#
+#   sudo cp deploy/walimah.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now walimah
+#   journalctl -u walimah -f
+# =============================================================================
+
+[Unit]
+Description=Walimah - Web Undangan Pernikahan
+Documentation=file:///opt/walimah/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=walimah
+Group=walimah
+WorkingDirectory=/opt/walimah
+
+# Berkas env berisi seluruh rahasia; chmod 600, milik root, dibaca systemd.
+# CATATAN: tanda $ pada ADMIN_PASSWORD_HASH ditulis \$ (lihat .env.example).
+EnvironmentFile=/etc/walimah/env
+Environment=NODE_ENV=production
+
+# Menjalankan keluaran standalone hasil `next build`.
+#
+# Build WAJIB berjalan di Linux — better-sqlite3, @node-rs/argon2, dan sharp
+# adalah addon native, dan bundel standalone ikut membawa binari khusus platform
+# tempat `npm install` dijalankan. Bundel hasil build di Windows berisi
+# argon2.win32-x64-msvc.node dan better_sqlite3.node kompilasi MSVC, yang
+# membuat layanan mati saat boot di sini. Karena dev box proyek ini Windows,
+# build dilakukan di VPS setelah `git pull` (RAM >= 2 GB), bukan di-rsync.
+ExecStart=/usr/bin/node /opt/walimah/.next/standalone/server.js
+
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=walimah
+
+# --- Pengetatan (hardening) --------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Data aplikasi: database, unggahan bukti transfer, backup, snapshot Sheet.
+# Seluruh path di /etc/walimah/env harus menunjuk ke sini dan bersifat absolut —
+# server.js standalone melakukan process.chdir(__dirname), sehingga path relatif
+# mendarat di /opt/walimah/.next/standalone/data dan gagal dengan EROFS.
+ReadWritePaths=/var/walimah
+
+# Cache ISR. Next menulis hasil regenerasi halaman ke dalam bundel itu sendiri
+# (serverDistDir/app/... dan .next/cache/fetch-cache), bukan ke direktori data.
+# Tanpa baris ini setiap revalidasi gagal EROFS: /api/revalidate berhenti
+# bekerja dan perubahan di Google Sheet tidak pernah muncul di situs.
+ReadWritePaths=/opt/walimah/.next/standalone/.next
+
+# Batas memori: VPS 1 GB. Melewati batas akan direstart, bukan membuat OOM
+# killer mematikan proses lain (mis. Caddy atau sshd).
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

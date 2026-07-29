@@ -1,0 +1,21 @@
+# Pengembangan berjalan di Windows, produksi di Ubuntu. Tanpa normalisasi ini,
+# berkas yang di-checkout dengan CRLF ikut ter-push, dan di VPS `deploy.sh`
+# gagal dengan "bad interpreter: /usr/bin/env bash^M" sementara systemd membaca
+# nilai env yang berakhiran \r — dua kegagalan yang penyebabnya tidak terlihat
+# dari pesan galatnya.
+* text=auto eol=lf
+
+# Berkas yang dieksekusi atau dibaca langsung oleh Linux: LF tanpa kecuali.
+*.sh            text eol=lf
+deploy/Caddyfile        text eol=lf
+deploy/*.service        text eol=lf
+deploy/*.example        text eol=lf
+
+# Biner: jangan disentuh sama sekali.
+*.png           binary
+*.jpg           binary
+*.webp          binary
+*.avif          binary
+*.mp3           binary
+*.db            binary
+*.node          binary

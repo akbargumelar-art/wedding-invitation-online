@@ -1,0 +1,301 @@
+{
+  "_readme": "Data DUMMY berbentuk sama persis dengan hasil pembacaan Google Sheet (baris pertama = header). Dipakai bila GOOGLE_SHEET_ID kosong atau snapshot belum pernah terbentuk. Ganti isinya lewat Google Sheet, bukan di sini.",
+  "config": [
+    [
+      "key",
+      "value"
+    ],
+    [
+      "is_draft",
+      "TRUE"
+    ],
+    [
+      "mode_syari",
+      "FALSE"
+    ],
+    [
+      "urutan_mempelai",
+      "wanita_dulu"
+    ],
+    [
+      "pria_panggilan",
+      "Rachmat"
+    ],
+    [
+      "pria_nama_lengkap",
+      "Rachmat Nurhandiman"
+    ],
+    [
+      "pria_bin",
+      "bin Nanan Syabar Handiman"
+    ],
+    [
+      "pria_ayah",
+      "Bapak Nanan Syabar Handiman"
+    ],
+    [
+      "pria_ibu",
+      "Ibu Dewi Purbasari"
+    ],
+    [
+      "pria_foto",
+      ""
+    ],
+    [
+      "pria_ig",
+      ""
+    ],
+    [
+      "wanita_panggilan",
+      "Layli"
+    ],
+    [
+      "wanita_nama_lengkap",
+      "Layli"
+    ],
+    [
+      "wanita_binti",
+      ""
+    ],
+    [
+      "wanita_ayah",
+      ""
+    ],
+    [
+      "wanita_ibu",
+      ""
+    ],
+    [
+      "wanita_foto",
+      ""
+    ],
+    [
+      "wanita_ig",
+      ""
+    ],
+    [
+      "quote_arab",
+      "وَمِنْ آيَاتِهِ أَنْ خَلَقَ لَكُم مِّنْ أَنفُسِكُمْ أَزْوَاجًا لِّتَسْكُنُوا إِلَيْهَا وَجَعَلَ بَيْنَكُم مَّوَدَّةً وَرَحْمَةً ۚ إِنَّ فِي ذَٰلِكَ لَآيَاتٍ لِّقَوْمٍ يَتَفَكَّرُونَ"
+    ],
+    [
+      "quote_terjemahan",
+      "Dan di antara tanda-tanda (kebesaran)-Nya ialah Dia menciptakan pasangan-pasangan untukmu dari jenismu sendiri, agar kamu cenderung dan merasa tenteram kepadanya, dan Dia menjadikan di antaramu rasa kasih dan sayang. Sungguh, pada yang demikian itu benar-benar terdapat tanda-tanda (kebesaran Allah) bagi kaum yang berpikir."
+    ],
+    [
+      "quote_sumber",
+      "QS. Ar-Rum: 21"
+    ],
+    [
+      "salam_pembuka",
+      "Assalamu'alaikum Warahmatullahi Wabarakatuh"
+    ],
+    [
+      "kalimat_pembuka",
+      "Dengan memohon rahmat dan ridha Allah Subhanahu wa Ta'ala, kami bermaksud menyelenggarakan walimatul 'urs putra-putri kami. Merupakan suatu kehormatan dan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir untuk memberikan doa restu."
+    ],
+    [
+      "kalimat_penutup",
+      "Merupakan suatu kehormatan dan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir untuk memberikan doa restu kepada kedua mempelai. Atas kehadiran dan doa restunya, kami mengucapkan terima kasih."
+    ],
+    [
+      "doa_penutup",
+      "Barakallahu laka wa baraka 'alaika wa jama'a bainakuma fi khair — Semoga Allah memberkahimu, memberkahi pernikahanmu, dan mengumpulkan kalian berdua dalam kebaikan."
+    ],
+    [
+      "salam_penutup",
+      "Wassalamu'alaikum Warahmatullahi Wabarakatuh"
+    ],
+    [
+      "venue_nama",
+      "Kopi Senja Cafe & Resto"
+    ],
+    [
+      "venue_alamat",
+      "Jl. Contoh No. 12, Sindang, Kabupaten Indramayu, Jawa Barat 45222"
+    ],
+    [
+      "venue_catatan",
+      "Parkir tersedia di sisi timur. Masuk melalui pintu samping."
+    ],
+    [
+      "gmaps_url",
+      "https://maps.google.com/?q=-6.3266,108.3200"
+    ],
+    [
+      "gmaps_embed",
+      "https://www.google.com/maps?q=-6.3266,108.3200&z=16&output=embed"
+    ],
+    [
+      "qris_image_url",
+      "/img/qris.png"
+    ],
+    [
+      "qris_nama_merchant",
+      "Rachmat Nurhandiman"
+    ],
+    [
+      "backsound_url",
+      ""
+    ],
+    [
+      "rsvp_open",
+      "TRUE"
+    ],
+    [
+      "deadline_rsvp",
+      "2026-09-08"
+    ],
+    [
+      "moderasi_ucapan",
+      "TRUE"
+    ],
+    [
+      "og_image",
+      "/img/og.png"
+    ],
+    [
+      "cover_image",
+      ""
+    ],
+    [
+      "pria_anak_ke",
+      "ketiga"
+    ],
+    [
+      "wanita_anak_ke",
+      "pertama"
+    ]
+  ],
+  "jadwal": [
+    [
+      "acara",
+      "tanggal",
+      "jam_mulai",
+      "jam_selesai",
+      "zona",
+      "lokasi",
+      "catatan",
+      "tampil"
+    ],
+    [
+      "Syukuran Pranikah",
+      "2026-09-11",
+      "19:00",
+      "21:00",
+      "WIB",
+      "BELUM DIISI — lengkapi lewat Sheet",
+      "Tanggal, jam, dan lokasi masih contoh",
+      "TRUE"
+    ],
+    [
+      "Akad Nikah",
+      "2026-09-12",
+      "08:00",
+      "10:00",
+      "WIB",
+      "Masjid Agung Indramayu",
+      "Mohon hadir 15 menit sebelum acara dimulai",
+      "TRUE"
+    ],
+    [
+      "Resepsi",
+      "2026-09-12",
+      "11:00",
+      "15:00",
+      "WIB",
+      "Kopi Senja Cafe & Resto",
+      "Ramah tamah dan santap siang",
+      "TRUE"
+    ]
+  ],
+  "galeri": [
+    [
+      "urutan",
+      "url",
+      "caption",
+      "tampil"
+    ]
+  ],
+  "rekening": [
+    [
+      "bank",
+      "nomor",
+      "atas_nama",
+      "tampil"
+    ],
+    [
+      "Bank Syariah Indonesia",
+      "7123456789",
+      "Ahmad Fauzi",
+      "TRUE"
+    ],
+    [
+      "Bank Mandiri",
+      "1300012345678",
+      "Fatimah Azzahra",
+      "TRUE"
+    ],
+    [
+      "Bank BCA",
+      "0987654321",
+      "Ahmad Fauzi",
+      "FALSE"
+    ]
+  ],
+  "tamu": [
+    [
+      "nama",
+      "slug",
+      "kategori",
+      "no_wa",
+      "link",
+      "pesan_wa",
+      "status_kirim"
+    ],
+    [
+      "Budi Santoso",
+      "budi-santoso",
+      "Teman Kantor",
+      "6281234567890",
+      "",
+      "",
+      "belum"
+    ],
+    [
+      "Keluarga Bapak Hasan",
+      "keluarga-hasan",
+      "Keluarga",
+      "6281234567891",
+      "",
+      "",
+      "belum"
+    ],
+    [
+      "Siti Nurhaliza",
+      "siti-nurhaliza",
+      "Teman Kuliah",
+      "6281234567892",
+      "",
+      "",
+      "belum"
+    ],
+    [
+      "Dr. Rahmat Hidayat",
+      "rahmat-hidayat",
+      "Kolega",
+      "6281234567893",
+      "",
+      "",
+      "belum"
+    ],
+    [
+      "Ibu Ratna Dewi",
+      "ratna-dewi",
+      "Tetangga",
+      "6281234567894",
+      "",
+      "",
+      "belum"
+    ]
+  ]
+}
