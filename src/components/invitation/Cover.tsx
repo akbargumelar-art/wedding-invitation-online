@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { ArchOrnament, StarOrnament } from '@/components/ui/Ornament';
+import { BismillahMark, KembangWajit } from './Ornaments';
 
 export type CoverProps = {
   /** Nama panggilan pasangan, sudah diurutkan sesuai Config.urutan_mempelai. */
@@ -75,13 +76,21 @@ export function Cover({
 
       <ArchOrnament className="pointer-events-none absolute inset-x-0 top-0 h-28 w-full text-gold-400/35 sm:h-40" />
 
+      {/* Kembang wajit di kedua sudut atas — aksen tradisional Sunda halus. */}
+      <KembangWajit className="pointer-events-none absolute top-4 left-4 h-6 w-6 text-gold-300/70" />
+      <KembangWajit className="pointer-events-none absolute top-4 right-4 h-6 w-6 text-gold-300/70" />
+
       {/* `min-h-0` wajib: tanpa itu anak flex tidak boleh menyusut di bawah
           tinggi kontennya, dan isi sampul akan mendorong tombol keluar layar. */}
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto px-5 py-6 text-center sm:gap-6 sm:px-6">
+        <BismillahMark className="shrink-0 text-gold-300/85 text-base sm:text-lg" />
+
         <StarOrnament size={32} className="shrink-0 text-gold-300 sm:hidden" />
         <StarOrnament size={40} className="hidden shrink-0 text-gold-300 sm:block" />
 
-        <p className="eyebrow text-gold-300">Walimatul &lsquo;Urs</p>
+        <p className="eyebrow text-gold-300">
+          <span className="sparkle-set">Walimatul &lsquo;Urs</span>
+        </p>
 
         <h1 className="font-display leading-[1.05] text-cream text-[clamp(2rem,11vw,4.5rem)]">
           <span className="block">{pasangan[0]}</span>

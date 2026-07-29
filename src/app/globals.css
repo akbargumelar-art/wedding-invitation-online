@@ -33,10 +33,21 @@
   /* Emas terang dipakai untuk ornamen dan garis (grafis, ambang 3:1).
      `gold-600` adalah satu-satunya yang boleh menjadi teks di atas latar terang;
      nilainya sengaja tetap gelap agar lolos 4,7:1. */
+  --color-gold-100: #fbf1d9; /* wash lembut untuk background halus */
+  --color-gold-200: #f7e6ba; /* aksen halus, border tipis */
   --color-gold-300: #f2dca8;
   --color-gold-400: #e0b95f;
   --color-gold-500: #c08f2f;
   --color-gold-600: #8a6f34;
+
+  /* Aksen tambahan bernuansa Sunda + Islami untuk ornamen meriah.
+     Tidak dipakai untuk teks utama — grafis dan ornamen saja. */
+  --color-terracotta-300: #e8b295; /* bata halus, aksen kembang wajit */
+  --color-terracotta-400: #d38a68; /* bata sedang untuk ornamen aksen */
+  --color-terracotta-500: #b56845; /* bata gelap, ornamen fokus */
+  --color-sage-200: #c9dcc0; /* daun muda, vine ringan */
+  --color-sage-400: #7ba57f; /* daun sedang */
+  --color-emerald-deep: #0d3527; /* aksen kaligrafi Islami di border */
 
   --color-danger: #9b2c2c;
   --color-success: #1f7a5a;
@@ -595,5 +606,184 @@
 
   .ornament-divider::after {
     background: linear-gradient(to left, transparent, currentColor);
+  }
+}
+
+/* =============================================================================
+   Ornamen meriah — Islami + Sunda
+   Semua efek ringan, CSS-only, dan menghormati prefers-reduced-motion.
+   ============================================================================= */
+@layer utilities {
+  /* Kembang wajit — pola belah ketupat kecil untuk sudut kartu/section.
+     Ditempatkan sebagai pseudo-element supaya tidak menambah node HTML. */
+  .corner-wajit::before,
+  .corner-wajit::after {
+    content: '';
+    position: absolute;
+    width: 1.25rem;
+    height: 1.25rem;
+    background-color: var(--color-gold-400);
+    opacity: 0.55;
+    transform: rotate(45deg);
+    mask-image: radial-gradient(circle, black 40%, transparent 65%);
+    -webkit-mask-image: radial-gradient(circle, black 40%, transparent 65%);
+    pointer-events: none;
+  }
+  .corner-wajit::before {
+    top: 0.5rem;
+    left: 0.5rem;
+  }
+  .corner-wajit::after {
+    bottom: 0.5rem;
+    right: 0.5rem;
+  }
+
+  /* Sparkle — tiga titik kecil emas yang berkedip pelan (~6s cycle).
+     Dipakai di header cover atau eyebrow tertentu untuk kesan "meriah". */
+  .sparkle-set {
+    position: relative;
+    display: inline-block;
+  }
+  .sparkle-set::before,
+  .sparkle-set::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--color-gold-400) 30%, transparent 70%);
+    opacity: 0;
+    animation: sparkle 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .sparkle-set::before {
+    top: -0.5rem;
+    left: -1.1rem;
+    animation-delay: 0s;
+  }
+  .sparkle-set::after {
+    top: -0.75rem;
+    right: -1.25rem;
+    animation-delay: 2s;
+    width: 5px;
+    height: 5px;
+  }
+
+  @keyframes sparkle {
+    0%, 100% { opacity: 0; transform: scale(0.6); }
+    40%, 60% { opacity: 0.85; transform: scale(1); }
+  }
+
+  /* Petal — kelopak/daun jatuh perlahan.
+     Elemen absolute di layer khusus; tidak block interaction, tidak affect layout. */
+  .petal-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 5;
+  }
+  .petal {
+    position: absolute;
+    top: -3rem;
+    width: 12px;
+    height: 12px;
+    opacity: 0;
+    background: radial-gradient(
+      ellipse at 40% 30%,
+      var(--color-gold-300) 15%,
+      var(--color-terracotta-300) 55%,
+      transparent 75%
+    );
+    border-radius: 60% 40% 55% 45%;
+    animation: petal-fall linear infinite;
+    will-change: transform, opacity;
+  }
+  .petal.leaf {
+    background: radial-gradient(
+      ellipse at 40% 30%,
+      var(--color-sage-200) 20%,
+      var(--color-sage-400) 60%,
+      transparent 80%
+    );
+    border-radius: 0 100% 0 100%;
+    width: 14px;
+    height: 10px;
+  }
+
+  @keyframes petal-fall {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+    10% {
+      opacity: 0.7;
+    }
+    90% {
+      opacity: 0.55;
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(var(--petal-drift, 40px), calc(100vh + 4rem), 0) rotate(var(--petal-spin, 240deg));
+    }
+  }
+
+  /* Gradient wash untuk section — sentuhan hangat cream+gold di bagian atas seksi. */
+  .section-wash {
+    position: relative;
+  }
+  .section-wash::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6rem;
+    background: linear-gradient(to bottom, var(--color-gold-100), transparent);
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .section-wash > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Kaligrafi wrapper — Bismillah/doa singkat pakai font Amiri.
+     Warna tidak di-set di sini supaya pemanggil bebas memilih (mis. gold-600
+     di atas cream, atau gold-300 di atas jade-800). */
+  .calli {
+    font-family: var(--font-arabic);
+    letter-spacing: 0;
+    line-height: 1.8;
+  }
+
+  /* Vine — garis dekoratif dengan simbol daun di tengah. Blok, bukan inline. */
+  .vine-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--color-sage-400);
+    margin: 1.5rem auto;
+    max-width: 20rem;
+  }
+  .vine-divider::before,
+  .vine-divider::after {
+    content: '';
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(to right, transparent, var(--color-sage-400), transparent);
+    opacity: 0.6;
+  }
+
+  /* Honor prefers-reduced-motion — semua animasi berulang di-off. */
+  @media (prefers-reduced-motion: reduce) {
+    .sparkle-set::before,
+    .sparkle-set::after,
+    .petal {
+      animation: none !important;
+      opacity: 0 !important;
+    }
   }
 }

@@ -2,6 +2,7 @@ import { Reveal } from '@/components/ui/Reveal';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { SectionHeading } from './SectionHeading';
 import { LazyMap } from './LazyMap';
+import { DaunDivider } from './Ornaments';
 import type { SiteConfig } from '@/lib/content/types';
 
 /** Lokasi resepsi (US-06): alamat, catatan khusus, tombol rute, dan peta lazy. */
@@ -9,9 +10,11 @@ export function VenueSection({ config }: { config: SiteConfig }) {
   if (!config.venueNama && !config.venueAlamat) return null;
 
   return (
-    <section id="lokasi" className="section bg-jade-50">
+    <section id="lokasi" className="section section-wash bg-jade-50">
       <div className="container-invite">
         <SectionHeading eyebrow="Denah & Rute" title="Lokasi Acara Akad & Resepsi" />
+
+        <DaunDivider className="mt-4" />
 
         <Reveal className="mt-8">
           <div className="card px-6 py-7 text-center">

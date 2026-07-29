@@ -2,6 +2,7 @@ import { Reveal } from '@/components/ui/Reveal';
 import { SectionHeading } from './SectionHeading';
 import { Countdown } from './Countdown';
 import { AddToCalendar } from './AddToCalendar';
+import { Arabesque, KembangWajit } from './Ornaments';
 import { formatRentangJam, formatTanggalLengkap } from '@/lib/date';
 import type { ScheduleItem, SiteConfig } from '@/lib/content/types';
 
@@ -61,14 +62,12 @@ export function ScheduleSection({
             // pengantar (mis. syukuran/pengajian pranikah). Beda kelas
             // container + heading + divider — tetap satu markup, satu file.
             const containerClass = isUtama
-              ? 'card px-6 py-7 relative overflow-hidden border-gold-300/50 shadow-[var(--shadow-primary,0_10px_30px_-15px_rgba(178,140,64,0.35))] bg-gradient-to-b from-parchment to-cream'
-              : 'card px-6 py-7 border-gold-300/50 bg-cream-deep/60 shadow-[var(--shadow-soft)]';
+              ? 'card px-6 py-7 relative overflow-hidden corner-wajit border-gold-300/50 shadow-[var(--shadow-primary,0_10px_30px_-15px_rgba(178,140,64,0.35))] bg-gradient-to-b from-parchment to-cream text-gold-500'
+              : 'card px-6 py-7 relative border-gold-300/50 bg-cream-deep/60 shadow-[var(--shadow-soft)] text-gold-400';
 
             const headingClass = isUtama
               ? 'text-center font-display text-xl text-jade-900'
               : 'text-center font-display text-lg text-jade-800/90';
-
-            const dividerSymbol = isUtama ? '✦' : '❋';
 
             return (
               <Reveal as="li" key={`${grup.tanggal}-${index}`} delayMs={index * 100}>
@@ -90,12 +89,11 @@ export function ScheduleSection({
                   <h3 className={headingClass}>{formatTanggalLengkap(grup.tanggal)}</h3>
 
                   <div className="mt-1 ornament-divider">
-                    <span
-                      className={isUtama ? 'text-sm text-gold-500' : 'text-sm text-gold-400/70'}
-                      aria-hidden="true"
-                    >
-                      {dividerSymbol}
-                    </span>
+                    {isUtama ? (
+                      <Arabesque className="h-3.5 w-10 text-gold-500" />
+                    ) : (
+                      <KembangWajit className="h-4 w-4 text-gold-400/80" />
+                    )}
                   </div>
 
                   {grup.acara.map((item, position) => (

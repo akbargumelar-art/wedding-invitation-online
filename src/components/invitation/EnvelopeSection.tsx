@@ -6,6 +6,7 @@ import { Reveal } from '@/components/ui/Reveal';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { FormStatus, PrivacyNote } from '@/components/ui/FormStatus';
 import { SectionHeading } from './SectionHeading';
+import { ArabesqueDivider } from './Ornaments';
 import { postForm } from '@/lib/client-api';
 import { envelopeSchema, fieldErrors, type ENVELOPE_METHODS } from '@/lib/validation';
 import { formatThousands } from '@/lib/text';
@@ -120,7 +121,7 @@ export function EnvelopeSection({
   }
 
   return (
-    <section id="amplop" className="section bg-jade-50">
+    <section id="amplop" className="section section-wash bg-jade-50">
       <div className="container-invite">
         <SectionHeading eyebrow="Tanda Kasih" title="Doa & Hadiah">
           <p className="text-sm">
@@ -128,6 +129,8 @@ export function EnvelopeSection({
             berkenan mengirim tanda kasih, kami sediakan opsi berikut dengan senang hati.
           </p>
         </SectionHeading>
+
+        <ArabesqueDivider className="mt-4 mx-auto max-w-xs" />
 
         <Reveal className="mt-8">
           {/* Seksi tertutup secara default; dibuka lewat accordion (US-12). */}

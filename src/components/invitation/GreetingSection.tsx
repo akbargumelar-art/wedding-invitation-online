@@ -1,5 +1,6 @@
 import { Reveal } from '@/components/ui/Reveal';
 import { StarOrnament } from '@/components/ui/Ornament';
+import { ArabesqueDivider } from './Ornaments';
 import type { SiteConfig } from '@/lib/content/types';
 
 /**
@@ -12,13 +13,14 @@ export function GreetingSection({ config }: { config: SiteConfig }) {
   const hasQuote = Boolean(config.quoteArab || config.quoteTerjemahan);
 
   return (
-    <section id="salam" className="section relative overflow-hidden bg-cream">
+    <section id="salam" className="section section-wash relative overflow-hidden bg-cream">
       <div className="container-invite">
         <Reveal className="text-center">
           <StarOrnament size={36} className="mx-auto text-gold-400" />
           <p className="mt-5 font-display text-2xl text-jade-800 md:text-3xl">
             {config.salamPembuka}
           </p>
+          <ArabesqueDivider className="mt-4 mx-auto max-w-xs" />
         </Reveal>
 
         {hasQuote ? (
