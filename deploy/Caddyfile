@@ -34,13 +34,21 @@ rachmat-layli.space {
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
 
 		# CSP: hanya domain sendiri, plus embed peta Google.
+		#
+		# 'unsafe-inline' pada script-src tidak bisa dihindari: Next App Router
+		# menyisipkan 15 skrip inline per halaman untuk payload RSC dan hidrasi,
+		# dan memblokirnya membuat situs mati total. Nonce tidak bisa dipakai
+		# karena `/` dan `/to/[slug]` adalah SSG — nonce wajib unik per
+		# permintaan, HTML-nya di-cache. Penjelasan lengkap ada di
+		# deploy/nginx-walimah-headers.conf.
+		#
 		# - 'unsafe-inline' pada style-src dibutuhkan Next untuk style inline
-		#   pada komponen gambar; script-src TIDAK memakai 'unsafe-inline'.
+		#   pada komponen gambar.
 		# - Tambahkan host gambar ke img-src bila galeri memakai URL eksternal
 		#   (samakan dengan remotePatterns di next.config.ts).
 		# Catatan: notifikasi WhatsApp dikirim dari server (Node), bukan dari
 		# browser, jadi connect-src tidak perlu memuat host gateway.
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self'; frame-src https://www.google.com https://maps.google.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self'; frame-src https://www.google.com https://maps.google.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
 
 		# Jangan bocorkan versi server.
 		-Server
