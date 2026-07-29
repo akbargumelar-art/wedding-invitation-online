@@ -272,8 +272,12 @@ fi
 # -----------------------------------------------------------------------------
 
 say "Memeriksa kesehatan di 127.0.0.1:${PORT}"
+# -s tanpa -S: percobaan yang gagal memang diharapkan selama proses masih boot,
+# dan mencetak "Failed to connect" pada percobaan pertama membuat deploy yang
+# sebenarnya berhasil terbaca seolah gagal. Kegagalan yang sesungguhnya
+# dilaporkan sekali di bawah, setelah seluruh percobaan habis.
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
-  if curl -fsS -m 5 -o /dev/null "http://127.0.0.1:${PORT}/"; then
+  if curl -fs -m 5 -o /dev/null "http://127.0.0.1:${PORT}/"; then
     echo
     say "Selesai. Walimah aktif di porta ${PORT}."
     echo "    Porta tersimpan di ${ENV_FILE} (PORT) dan ${PORT_FILE} (WALIMAH_PORT)."
