@@ -145,7 +145,24 @@ is_taken() {
 # Pertahankan porta yang sudah dipakai bila masih layak. Deploy harus idempoten:
 # mengubah porta pada deploy rutin berarti Caddy dan cron ikut harus disentuh
 # tanpa alasan, dan setiap perubahan itu adalah kesempatan baru untuk salah.
-if [[ -n $current ]]; then
+#
+# Syarat "layak" mencakup berada DI DALAM rentang pencarian, dan itu bukan
+# kerewelan. Templat env dikirim dengan PORT=3000 sebagai penahan tempat, jadi
+# tanpa syarat ini pemasangan pertama akan mempertahankan 3000 begitu saja
+# setiap kali porta itu kebetulan sedang menganggur — dan 3000 justru porta
+# yang paling diperebutkan di VPS berpenghuni banyak aplikasi. Cukup satu
+# tetangga sedang mati saat deploy, dan bentrokannya baru muncul ketika
+# tetangga itu hidup lagi, jauh dari penyebabnya.
+#
+# Yang "sedang menganggur" dan yang "tidak dimiliki siapa pun" adalah dua hal
+# berbeda; ss hanya bisa menjawab yang pertama. Rentang 3100-3199 dipilih
+# justru supaya pertanyaan kedua tidak perlu dijawab.
+in_search_range() {
+  local port=$1
+  [[ $port -ge $RANGE_START && $port -le $RANGE_END ]]
+}
+
+if [[ -n $current ]] && in_search_range "$current"; then
   if systemctl is-active --quiet walimah 2>/dev/null; then
     # Layanan hidup, jadi pendengar di porta itu memang milik kita sendiri.
     echo "resolve-port: mempertahankan porta ${current} (walimah sedang aktif)." >&2
@@ -162,6 +179,8 @@ if [[ -n $current ]]; then
   fi
 
   echo "resolve-port: porta ${current} sudah dipakai aplikasi lain, mencari pengganti." >&2
+elif [[ -n $current ]]; then
+  echo "resolve-port: porta ${current} di luar rentang ${RANGE_START}-${RANGE_END}, memilih ulang." >&2
 fi
 
 for ((candidate = RANGE_START; candidate <= RANGE_END; candidate++)); do
