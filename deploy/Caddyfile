@@ -69,6 +69,17 @@ rachmat-layli.space {
 	# tanpa env; nilai sesungguhnya selalu datang dari berkas itu.
 	reverse_proxy 127.0.0.1:{$WALIMAH_PORT:3000} {
 		header_up X-Real-IP {remote_host}
+
+		# MENIMPA, bukan menambah. Caddy secara bawaan MENAMBAHKAN IP klien ke
+		# rantai X-Forwarded-For yang datang bersama permintaan. Di sini Caddy
+		# adalah proxy terdepan, jadi rantai itu berasal langsung dari internet:
+		# siapa pun bisa mengirim `X-Forwarded-For: 1.2.3.4` dan Caddy
+		# meneruskan `1.2.3.4, <ip-asli>`.
+		#
+		# src/lib/rate-limit.ts:56 mengambil entri PERTAMA. Tanpa baris ini
+		# entri itu dikuasai penyerang, dan seluruh rate-limit RSVP, ucapan,
+		# serta amplop bisa dilewati hanya dengan memutar nilainya.
+		header_up X-Forwarded-For {remote_host}
 	}
 
 	log {

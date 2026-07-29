@@ -115,8 +115,13 @@ say "Porta backend: ${PORT}"
 say "Memasang unit systemd"
 install -m 644 -o root -g root deploy/walimah.service /etc/systemd/system/walimah.service
 
-install -d -m 755 /etc/systemd/system/caddy.service.d
-install -m 644 -o root -g root deploy/caddy-port.conf /etc/systemd/system/caddy.service.d/walimah-port.conf
+# Drop-in Caddy hanya dipasang bila Caddy memang ada. Di VPS yang 80/443-nya
+# dipegang nginx, direktori ini tidak boleh dibuat: ia membuat systemd
+# menganggap ada unit caddy yang perlu diurus, padahal tidak.
+if systemctl list-unit-files caddy.service >/dev/null 2>&1; then
+  install -d -m 755 /etc/systemd/system/caddy.service.d
+  install -m 644 -o root -g root deploy/caddy-port.conf /etc/systemd/system/caddy.service.d/walimah-port.conf
+fi
 systemctl daemon-reload
 
 # -----------------------------------------------------------------------------
@@ -171,7 +176,81 @@ say "Menjalankan layanan"
 systemctl enable walimah >/dev/null
 systemctl restart walimah
 
-if systemctl list-unit-files caddy.service >/dev/null 2>&1; then
+configure_nginx() {
+  local domain cert vhost=/etc/nginx/sites-available/walimah
+
+  domain="$(sed -n 's|^NEXT_PUBLIC_SITE_URL=https\?://||p' "$ENV_FILE" | tail -1 | sed 's|/.*$||')"
+  [[ -n $domain ]] || { warn "NEXT_PUBLIC_SITE_URL tidak terbaca; lewati konfigurasi nginx."; return 0; }
+
+  install -d -m 755 /etc/nginx/snippets
+  install -m 644 -o root -g root deploy/nginx-walimah-headers.conf /etc/nginx/snippets/walimah-headers.conf
+  install -m 644 -o root -g root deploy/nginx-walimah-proxy.conf   /etc/nginx/snippets/walimah-proxy.conf
+
+  cert="/etc/letsencrypt/live/${domain}/fullchain.pem"
+  if [[ -f $cert ]]; then
+    say "Sertifikat ${domain} ditemukan, memasang vhost HTTPS"
+    sed "s|__DOMAIN__|${domain}|g" deploy/nginx-walimah.conf > "$vhost"
+  else
+    # Vhost HTTPS penuh menunjuk berkas sertifikat yang belum ada, dan
+    # `nginx -t` menolaknya. Menolak berarti reload gagal — dan reload yang
+    # gagal di mesin ini berarti seluruh situs lain ikut tidak terperbarui.
+    # Jadi sebelum sertifikat terbit, pasang bentuk HTTP saja: cukup untuk
+    # melayani tantangan ACME, dan jujur bahwa HTTPS belum hidup.
+    say "Sertifikat ${domain} belum ada, memasang vhost HTTP sementara"
+    cat > "$vhost" <<EOF
+# Sementara — dihasilkan deploy/install.sh sebelum sertifikat terbit.
+# Jalankan certbot (lihat keluaran install.sh), lalu ulangi install.sh untuk
+# mendapatkan vhost HTTPS penuh dari deploy/nginx-walimah.conf.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${domain} www.${domain};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        proxy_pass http://walimah_backend;
+        include /etc/nginx/snippets/walimah-proxy.conf;
+    }
+}
+EOF
+  fi
+
+  chmod 644 "$vhost"
+  ln -sfn "$vhost" /etc/nginx/sites-enabled/walimah
+
+  # nginx di mesin ini melayani mailcow, portainer, dan situs lain. Konfigurasi
+  # yang tidak lolos uji TIDAK boleh sampai ke reload: sekali nginx menolak
+  # memuat, yang padam bukan cuma Walimah. Karena itu vhost dicabut kembali
+  # begitu `nginx -t` gagal, lalu diuji ulang untuk memastikan mesin kembali
+  # ke keadaan yang sah sebelum skrip ini menyerah.
+  if ! nginx -t 2>&1 | sed 's/^/    /'; then
+    rm -f /etc/nginx/sites-enabled/walimah
+    warn "konfigurasi nginx ditolak; vhost Walimah dicabut kembali."
+    nginx -t >/dev/null 2>&1 || warn "PERHATIAN: nginx tetap tidak lolos uji — ada masalah lain di luar Walimah."
+    die "perbaiki galat di atas, lalu jalankan install.sh lagi."
+  fi
+
+  systemctl reload nginx
+  say "nginx dimuat ulang"
+
+  if [[ ! -f $cert ]]; then
+    echo >&2
+    warn "HTTPS belum aktif. Terbitkan sertifikat, lalu jalankan install.sh sekali lagi:"
+    warn "  apt install -y certbot python3-certbot-nginx"
+    warn "  certbot certonly --webroot -w /var/www/html -d ${domain} -d www.${domain}"
+    warn "Pastikan A record ${domain} dan www.${domain} sudah menunjuk ke IP VPS ini."
+    warn "Selama HTTPS belum aktif, login admin akan SELALU gagal: cookie sesi"
+    warn "memakai flag Secure di produksi, jadi browser tidak pernah mengirimkannya kembali."
+  fi
+}
+
+if systemctl is-active --quiet nginx 2>/dev/null; then
+  say "nginx terdeteksi aktif — memakai jalur nginx, Caddy tidak disentuh"
+  configure_nginx
+elif systemctl list-unit-files caddy.service >/dev/null 2>&1; then
   if [[ "$port_before" != "$PORT" ]]; then
     # Porta berubah, jadi Caddy harus benar-benar restart. `reload` menjalankan
     # ExecReload di dalam unit yang sudah hidup, dan apakah EnvironmentFile
@@ -184,7 +263,8 @@ if systemctl list-unit-files caddy.service >/dev/null 2>&1; then
     systemctl reload caddy
   fi
 else
-  warn "Caddy belum terpasang; lewati. Pasang /etc/caddy/Caddyfile dari deploy/Caddyfile."
+  warn "Tidak ada nginx maupun Caddy yang aktif; lewati konfigurasi proxy."
+  warn "Situs hanya dapat diakses lewat 127.0.0.1:${PORT} dari dalam VPS."
 fi
 
 # -----------------------------------------------------------------------------

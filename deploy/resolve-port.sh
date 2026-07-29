@@ -28,6 +28,12 @@ ENV_FILE="${ENV_FILE:-/etc/walimah/env}"
 # terbaca lewat /proc/<pid>/environ oleh proses yang tidak membutuhkannya.
 PORT_FILE="${PORT_FILE:-/etc/walimah/port}"
 
+# Upstream nginx, untuk VPS yang 80/443-nya sudah dipegang nginx sehingga Caddy
+# tidak bisa dipakai. Ditulis hanya bila nginx memang terpasang. Berkas ini ada
+# supaya angka porta tetap tidak pernah tertulis tangan di server block —
+# vhost menunjuk ke nama upstream, bukan ke nomor.
+NGINX_UPSTREAM_FILE="${NGINX_UPSTREAM_FILE:-/etc/nginx/conf.d/walimah-upstream.conf}"
+
 # Rentang pencarian. 3000–3099 sengaja dilewati: itu wilayah default Next, WAHA,
 # Grafana, dan sebagian besar aplikasi Node lain, jadi kemungkinan tabrakannya
 # paling tinggi justru di sana.
@@ -102,6 +108,31 @@ set_env_port() {
   install -m 600 -o root -g root "$tmp" "$ENV_FILE"
 }
 
+set_nginx_upstream() {
+  local port=$1 tmp
+  # Lewati bila nginx tidak terpasang: di VPS ber-Caddy, direktori ini tidak
+  # ada dan menulisnya hanya menaruh sampah.
+  [[ -d "$(dirname "$NGINX_UPSTREAM_FILE")" ]] || return 0
+
+  tmp="$(mktemp)"
+  trap 'rm -f "$tmp"' RETURN
+
+  cat > "$tmp" <<EOF
+# Dihasilkan oleh deploy/resolve-port.sh — jangan disunting manual.
+# Dipakai deploy/nginx-walimah.conf sebagai proxy_pass http://walimah_backend.
+upstream walimah_backend {
+    server 127.0.0.1:${port};
+
+    # Koneksi menganggur yang disimpan untuk dipakai ulang. Berpasangan dengan
+    # proxy_http_version 1.1 dan Connection "" di walimah-proxy.conf; tanpa
+    # keduanya baris ini tidak berefek apa-apa.
+    keepalive 16;
+}
+EOF
+
+  install -m 644 -o root -g root "$tmp" "$NGINX_UPSTREAM_FILE"
+}
+
 set_port_file() {
   local port=$1 tmp
   tmp="$(mktemp)"
@@ -167,6 +198,7 @@ if [[ -n $current ]] && in_search_range "$current"; then
     # Layanan hidup, jadi pendengar di porta itu memang milik kita sendiri.
     echo "resolve-port: mempertahankan porta ${current} (walimah sedang aktif)." >&2
     set_port_file "$current"
+    set_nginx_upstream "$current"
     echo "$current"
     exit 0
   fi
@@ -174,6 +206,7 @@ if [[ -n $current ]] && in_search_range "$current"; then
   if ! is_taken "$current" && ! in_ephemeral_range "$current"; then
     echo "resolve-port: mempertahankan porta ${current} (masih bebas)." >&2
     set_port_file "$current"
+    set_nginx_upstream "$current"
     echo "$current"
     exit 0
   fi
@@ -189,9 +222,10 @@ for ((candidate = RANGE_START; candidate <= RANGE_END; candidate++)); do
 
   set_env_port "$candidate"
   set_port_file "$candidate"
+  set_nginx_upstream "$candidate"
 
   echo "resolve-port: porta ${candidate} dipilih dan ditulis ke ${ENV_FILE}." >&2
-  echo "resolve-port: jalankan 'systemctl reload caddy' agar proxy mengikuti." >&2
+  echo "resolve-port: muat ulang proxy agar mengikuti (nginx: 'nginx -t && systemctl reload nginx'; caddy: 'systemctl restart caddy')." >&2
   echo "$candidate"
   exit 0
 done

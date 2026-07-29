@@ -291,11 +291,12 @@ sudo install -m 600 -o root -g root credentials.json /etc/walimah/credentials.js
 # 6. Pasang: porta dipilih, unit systemd + drop-in Caddy dipasang, build, jalan
 sudo ./deploy/install.sh
 
-# 7. Proxy dan cron
-sudo cp deploy/Caddyfile /etc/caddy/Caddyfile   # ganti domainnya
-sudo systemctl reload caddy
+# 7. Cron
 sudo crontab -e                                  # isi dari deploy/crontab.example
 ```
+
+Proxy tidak ada di daftar itu karena `install.sh` yang mengurusnya — lihat
+bagian berikutnya.
 
 Pembaruan sesudahnya cukup dua perintah, dan `install.sh` idempoten:
 
@@ -347,6 +348,68 @@ Melihat porta yang berlaku, atau menggeser rentangnya:
 sudo ./deploy/resolve-port.sh --show          # cetak porta saat ini
 sudo RANGE_START=3300 RANGE_END=3399 ./deploy/resolve-port.sh
 ```
+
+### Proxy: nginx atau Caddy, dipilih otomatis
+
+`install.sh` memeriksa apa yang sudah hidup dan menyesuaikan diri:
+
+- **nginx aktif** → memasang vhost dari [`deploy/nginx-walimah.conf`](deploy/nginx-walimah.conf)
+  ke `sites-available/walimah`, plus dua snippet ke `/etc/nginx/snippets/`.
+  Caddy tidak disentuh sama sekali.
+- **hanya Caddy** → memasang drop-in porta, lalu reload (atau restart bila
+  porta bergeser).
+- **tidak ada keduanya** → dilewati dengan peringatan; layanan tetap hidup di
+  loopback.
+
+Jalur nginx wajib pada VPS yang nginx-nya sudah memegang 80/443 untuk situs
+lain. Caddy tidak bisa hidup berdampingan di sana: ia gagal `bind`, dan
+menghentikan nginx demi memberi jalan berarti mematikan seluruh situs lain di
+mesin yang sama.
+
+Porta tetap tidak pernah tertulis di server block. `resolve-port.sh` menulis
+`/etc/nginx/conf.d/walimah-upstream.conf` berisi blok `upstream
+walimah_backend`, dan vhost menunjuk ke namanya.
+
+Sebelum menyentuh `systemctl reload nginx`, `install.sh` menjalankan `nginx -t`.
+Bila ditolak, vhost Walimah **dicabut kembali** dan skrip berhenti — konfigurasi
+yang gagal tidak boleh sampai ke reload, sebab yang padam bukan cuma Walimah.
+
+#### Dua jebakan nginx yang sudah ditangani
+
+**`add_header` tidak diwariskan.** Blok `location` yang punya `add_header`
+sendiri membuang seluruh `add_header` milik induknya, tanpa keluhan dari
+`nginx -t`. Halaman admin dan aset statis akan diam-diam kehilangan CSP dan
+HSTS. Karena itu setiap `location` meng-`include` snippet header secara
+eksplisit.
+
+**`$proxy_add_x_forwarded_for` adalah lubang keamanan di sini.** Idiom itu
+*menambahkan* IP klien ke rantai `X-Forwarded-For` yang datang bersama
+permintaan. nginx adalah proxy terdepan, jadi rantai itu berasal langsung dari
+internet — siapa pun bisa mengirim `X-Forwarded-For: 1.2.3.4`, dan
+[`rate-limit.ts:56`](src/lib/rate-limit.ts#L56) mengambil entri **pertama**.
+Seluruh rate-limit RSVP, ucapan, dan amplop bisa dilewati hanya dengan memutar
+nilai itu. Konfigurasi ini memakai `$remote_addr` yang menimpa, bukan menambah.
+[`deploy/Caddyfile`](deploy/Caddyfile) kini melakukan hal setara dengan
+`header_up X-Forwarded-For {remote_host}`.
+
+#### Sertifikat HTTPS
+
+HTTPS bukan opsional: cookie sesi admin memakai flag `Secure` di produksi, jadi
+di atas `http://` polos login admin **selalu** gagal.
+
+`install.sh` melihat apakah `/etc/letsencrypt/live/<domain>/fullchain.pem` ada.
+Bila belum, ia memasang vhost HTTP sementara — cukup untuk melayani tantangan
+ACME — dan mencetak perintah yang perlu dijalankan:
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot certonly --webroot -w /var/www/html -d rachmat-layli.space -d www.rachmat-layli.space
+sudo ./deploy/install.sh      # ulangi; kini vhost HTTPS penuh yang dipasang
+```
+
+Vhost HTTPS penuh dipasang belakangan justru karena `nginx -t` menolak
+konfigurasi yang menunjuk berkas sertifikat yang belum ada — dan penolakan itu
+akan menggagalkan reload untuk seluruh situs di mesin ini, bukan hanya Walimah.
 
 ### Rahasia yang wajib dibuat
 
