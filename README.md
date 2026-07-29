@@ -212,8 +212,20 @@ Tiga hal yang gampang terlewat kalau menyentuh berkas ini:
 
 ## 3. Menghubungkan Google Sheet
 
-1. Buat spreadsheet dengan tab `Config`, `Jadwal`, `Galeri`, `Rekening`, `Tamu`
-   (skema pada Lampiran A PRD; `data/seed.json` adalah contoh isinya yang persis).
+1. Buat spreadsheet dengan tab `Config`, `Jadwal`, `Galeri`, `Rekening`, `Tamu`.
+   Nama tab **case-sensitive** — aplikasi membaca range tetap, dan salah
+   kapitalisasi membuat tab tidak terbaca tanpa pesan galat.
+
+   Untuk mengisinya dengan contoh yang bentuknya sudah pasti benar:
+
+   ```bash
+   npx tsx scripts/seed-to-csv.ts /tmp/sheet-csv
+   ```
+
+   lalu impor tiap berkas ke tab bernama sama lewat **File → Import → Upload →
+   Replace current sheet**. Jangan menyalin-tempel dari terminal: emulator
+   membungkus baris panjang seperti `quote_arab` dan `kalimat_pembuka`, dan
+   pembungkusan itu menghancurkan struktur kolom saat ditempel.
 2. Buat **dua** service account di Google Cloud:
    - satu dengan scope `spreadsheets.readonly` untuk membaca konten;
    - satu dengan scope `spreadsheets` khusus untuk cron export.
@@ -286,7 +298,12 @@ cd /opt/walimah
 # 5. Rahasia — jalankan sekali untuk menyalin templat, isi, lalu ulangi
 sudo ./deploy/install.sh                 # berhenti: "isi seluruh nilai ISI-INI"
 sudo nano /etc/walimah/env               # isi ADMIN_PASSWORD_HASH, AUTH_SECRET, dst.
-sudo install -m 600 -o root -g root credentials.json /etc/walimah/credentials.json
+# 640 root:walimah, BUKAN 600 root:root. Berkas ini dibaca oleh aplikasi yang
+# berjalan sebagai user walimah, bukan oleh systemd sebagai root seperti env.
+# Dengan 600 root:root, readFileSync gagal — dan sheets.ts menelan galatnya
+# lalu diam-diam kembali ke data seed. Situs tampil normal dengan isi dummy,
+# tanpa satu pun pesan galat.
+sudo install -m 640 -o root -g walimah credentials.json /etc/walimah/credentials.json
 
 # 6. Pasang: porta dipilih, unit systemd + drop-in Caddy dipasang, build, jalan
 sudo ./deploy/install.sh
