@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Cover, type CoverProps } from './Cover';
 import { AudioPlayer } from './AudioPlayer';
 import { BookShell, type BookPage } from './BookShell';
+import { ScrollToTop } from './ScrollToTop';
 
 /**
  * Kerangka undangan: menahan scroll sampai tamu menekan "Buka Undangan",
@@ -75,6 +76,10 @@ export function InvitationShell({
       </main>
 
       {backsoundUrl ? <AudioPlayer src={backsoundUrl} active={opened} /> : null}
+
+      {/* Tombol "kembali ke atas" — hanya aktif di mode gulir dan setelah tamu
+          menggulir cukup jauh (logika ada di dalam komponen). */}
+      {opened ? <ScrollToTop /> : null}
     </>
   );
 }

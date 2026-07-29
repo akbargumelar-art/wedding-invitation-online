@@ -4,7 +4,13 @@ import type { SiteConfig } from '@/lib/content/types';
 
 /** Penutup: doa dan salam penutup, keduanya dari Sheet (US-03). */
 export function ClosingSection({ config }: { config: SiteConfig }) {
-  const pasangan = [config.wanita.panggilan, config.pria.panggilan].filter(Boolean);
+  // Urutan mengikuti Config.urutan_mempelai. Sebelumnya di-hardcode
+  // wanita-lalu-pria dan mengabaikan setting Sheet, sehingga penutup
+  // selalu memakai urutan berbeda dari halaman sampul.
+  const pasangan =
+    config.urutanMempelai === 'pria_dulu'
+      ? [config.pria.panggilan, config.wanita.panggilan].filter(Boolean)
+      : [config.wanita.panggilan, config.pria.panggilan].filter(Boolean);
 
   return (
     <footer id="penutup" className="relative overflow-hidden bg-jade-800 text-cream">

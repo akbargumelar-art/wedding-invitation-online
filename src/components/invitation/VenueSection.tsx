@@ -11,7 +11,7 @@ export function VenueSection({ config }: { config: SiteConfig }) {
   return (
     <section id="lokasi" className="section bg-jade-50">
       <div className="container-invite">
-        <SectionHeading eyebrow="Denah & Rute" title="Lokasi Acara" />
+        <SectionHeading eyebrow="Denah & Rute" title="Lokasi Acara Akad & Resepsi" />
 
         <Reveal className="mt-8">
           <div className="card px-6 py-7 text-center">

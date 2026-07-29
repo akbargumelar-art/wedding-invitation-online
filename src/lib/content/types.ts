@@ -61,6 +61,12 @@ export type ScheduleItem = {
   zona: ZoneCode;
   lokasi: string;
   catatan: string;
+  /**
+   * URL Google Maps spesifik untuk event ini (kolom `gmaps_url` di Jadwal).
+   * Kalau kosong, tombol Lokasi Acara akan mencari berdasarkan nama lokasi
+   * atau jatuh ke Config.gmapsUrl kalau lokasi sama dengan venue utama.
+   */
+  gmapsUrl: string;
   /** Epoch ms UTC dari tanggal+jamMulai pada zona terkait. */
   startsAtMs: number;
   endsAtMs: number | null;

@@ -122,8 +122,11 @@ export function EnvelopeSection({
   return (
     <section id="amplop" className="section bg-jade-50">
       <div className="container-invite">
-        <SectionHeading eyebrow="Tanda Kasih" title="Amplop Digital">
-          <p className="text-sm">Kehadiran dan doa Anda sudah lebih dari cukup bagi kami.</p>
+        <SectionHeading eyebrow="Tanda Kasih" title="Doa & Hadiah">
+          <p className="text-sm">
+            Kehadiran dan doa restu Bapak/Ibu/Saudara/i adalah hadiah paling berharga. Sekiranya
+            berkenan mengirim tanda kasih, kami sediakan opsi berikut dengan senang hati.
+          </p>
         </SectionHeading>
 
         <Reveal className="mt-8">

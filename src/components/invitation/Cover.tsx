@@ -100,18 +100,30 @@ export function Cover({
           </p>
           <p className="mt-0.5 text-xs text-jade-200">di tempat</p>
         </div>
-      </div>
 
-      <div className="relative w-full shrink-0 px-5 pt-2 pb-6 sm:px-6 sm:pb-10">
+        {/* Tombol Buka Undangan — di bawah card Kepada Yth., rata tengah.
+            Bertema jade+gold: gradient gold, ring/glow, hover lift + shine icon. */}
         <button
           type="button"
           onClick={onOpen}
-          className="btn btn-primary mx-auto w-full max-w-xs bg-gold-400 text-jade-900 hover:bg-gold-300"
+          className="group relative mt-5 inline-flex w-full max-w-xs shrink-0 items-center justify-center gap-2.5 overflow-hidden rounded-full border border-gold-300/60 bg-gradient-to-b from-gold-300 to-gold-500 px-7 py-3 text-sm font-semibold tracking-wide text-jade-900 shadow-[0_10px_25px_-8px_rgb(0_0_0_/_0.55),_0_0_0_1px_rgb(255_215_130_/_0.35),_inset_0_1px_0_rgb(255_255_255_/_0.55)] ring-1 ring-gold-200/40 transition-all duration-300 hover:-translate-y-0.5 hover:from-gold-200 hover:to-gold-400 hover:shadow-[0_14px_30px_-8px_rgb(0_0_0_/_0.6),_0_0_28px_-4px_rgb(255_215_130_/_0.55),_inset_0_1px_0_rgb(255_255_255_/_0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-200 active:translate-y-0 active:shadow-[0_6px_18px_-8px_rgb(0_0_0_/_0.6),_inset_0_1px_0_rgb(255_255_255_/_0.55)] sm:mt-6 sm:px-8 sm:py-3.5 sm:text-[0.95rem]"
         >
-          <span aria-hidden="true">✉</span>
-          Buka Undangan
+          {/* Shimmer sweep: gradasi diagonal yang meluncur saat hover.
+              pointer-events-none supaya tidak menghalangi klik tombol. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-0 transition-all duration-700 ease-out group-hover:left-full group-hover:opacity-100"
+          />
+          <span
+            aria-hidden="true"
+            className="text-base transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-110 sm:text-lg"
+          >
+            ✉
+          </span>
+          <span className="relative">Buka Undangan</span>
         </button>
-        <p className="mt-2 text-center text-[0.6875rem] leading-snug text-jade-200 sm:mt-3 sm:text-xs">
+
+        <p className="mt-3 text-center text-[0.6875rem] leading-snug text-jade-200 sm:text-xs">
           Mohon maaf apabila ada kesalahan penulisan nama dan gelar
         </p>
       </div>
