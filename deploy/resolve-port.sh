@@ -6,7 +6,12 @@
 #   sudo ./deploy/resolve-port.sh          # pilih/pertahankan porta
 #   sudo ./deploy/resolve-port.sh --show   # hanya cetak porta yang berlaku
 #
-# Dijalankan sebagai root, sebelum `systemctl restart walimah`.
+# Dijalankan sebagai root, sebelum `systemctl restart walimah`. Biasanya lewat
+# deploy/install.sh, yang memakainya sebagai `port="$(deploy/resolve-port.sh)"`.
+#
+# Kontrak keluaran: stdout HANYA berisi angka porta, satu baris. Seluruh
+# keterangan pergi ke stderr — tanpa disiplin itu, pemanggil di atas ikut
+# menangkap kalimat penjelasan dan meneruskannya sebagai nomor porta.
 #
 # Porta SENGAJA tidak dipilih ulang setiap kali proses start. server.js
 # standalone membaca PORT satu kali dan tidak punya fallback: bila porta
@@ -143,14 +148,14 @@ is_taken() {
 if [[ -n $current ]]; then
   if systemctl is-active --quiet walimah 2>/dev/null; then
     # Layanan hidup, jadi pendengar di porta itu memang milik kita sendiri.
-    echo "resolve-port: mempertahankan porta ${current} (walimah sedang aktif)."
+    echo "resolve-port: mempertahankan porta ${current} (walimah sedang aktif)." >&2
     set_port_file "$current"
     echo "$current"
     exit 0
   fi
 
   if ! is_taken "$current" && ! in_ephemeral_range "$current"; then
-    echo "resolve-port: mempertahankan porta ${current} (masih bebas)."
+    echo "resolve-port: mempertahankan porta ${current} (masih bebas)." >&2
     set_port_file "$current"
     echo "$current"
     exit 0

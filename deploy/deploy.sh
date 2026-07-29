@@ -5,6 +5,14 @@
 #
 #   ./deploy/deploy.sh user@vps.contoh.com
 #
+# Ini jalur ALTERNATIF, dan hanya sah dari mesin Linux. Jalur utama adalah
+# git + deploy/install.sh di VPS; lihat README §4.
+#
+# Skrip ini TIDAK menyentuh porta: ia hanya mengganti bundel dan merestart
+# layanan. Porta sudah ditetapkan deploy/install.sh pada pemasangan pertama
+# dan tersimpan di /etc/walimah/env, jadi restart di sini memakai nilai yang
+# sama. Bila porta perlu dipilih ulang, jalankan resolve-port.sh di VPS.
+#
 set -euo pipefail
 
 TARGET="${1:-}"
@@ -33,8 +41,9 @@ if [[ "$(uname -s)" != "Linux" || -n "$FOREIGN_BINARIES" ]]; then
   [[ -n "$FOREIGN_BINARIES" ]] && echo "$FOREIGN_BINARIES" >&2
   echo >&2
   echo "Skrip ini hanya sah dijalankan dari mesin Linux. Dari Windows, deploy" >&2
-  echo "lewat git: push ke remote, lalu di VPS jalankan git pull + npm ci +" >&2
-  echo "rm -rf .next + npm run build + systemctl restart walimah." >&2
+  echo "lewat git:" >&2
+  echo "  git push" >&2
+  echo "  ssh user@vps 'cd /opt/walimah && sudo git pull && sudo ./deploy/install.sh'" >&2
   exit 1
 fi
 

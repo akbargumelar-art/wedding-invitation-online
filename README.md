@@ -259,7 +259,9 @@ Rinciannya di [public/audio/README.md](public/audio/README.md).
 
 ## 4. Deploy ke VPS (Ubuntu 24.04)
 
-Berkas pendukung ada di [deploy/](deploy/). Ringkasannya:
+Berkas pendukung ada di [deploy/](deploy/). Pemasangan dan seluruh pembaruan
+sesudahnya dikerjakan [`deploy/install.sh`](deploy/install.sh); langkah manual
+di bawah hanya menyiapkan sistemnya.
 
 ```bash
 # 1. Sistem
@@ -268,7 +270,7 @@ sudo apt install -y curl git ufw fail2ban unattended-upgrades caddy
 sudo ufw allow 22,80,443/tcp && sudo ufw enable
 sudo timedatectl set-timezone Asia/Jakarta
 
-# 2. Swap 2 GB (wajib bila RAM 1 GB)
+# 2. Swap 2 GB (wajib bila RAM 1 GB — build Next tanpa ini kena OOM)
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
 sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
@@ -277,30 +279,73 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
-# 4. Pengguna & direktori
-sudo useradd -r -s /usr/sbin/nologin walimah
-sudo mkdir -p /var/walimah/{data,uploads,backups} /etc/walimah /opt/walimah
-sudo chown -R walimah:walimah /var/walimah /opt/walimah
+# 4. Ambil kode
+sudo git clone <url-repo-anda> /opt/walimah
+cd /opt/walimah
 
-# 5. Rahasia
-sudo cp .env.example /etc/walimah/env    # lalu isi seluruh nilainya
-sudo chmod 600 /etc/walimah/env
-sudo cp credentials.json /etc/walimah/credentials.json
-sudo chmod 600 /etc/walimah/credentials.json
+# 5. Rahasia — jalankan sekali untuk menyalin templat, isi, lalu ulangi
+sudo ./deploy/install.sh                 # berhenti: "isi seluruh nilai ISI-INI"
+sudo nano /etc/walimah/env               # isi ADMIN_PASSWORD_HASH, AUTH_SECRET, dst.
+sudo install -m 600 -o root -g root credentials.json /etc/walimah/credentials.json
 
-# 6. Layanan, proxy, cron
-sudo cp deploy/walimah.service /etc/systemd/system/
+# 6. Pasang: porta dipilih, unit systemd + drop-in Caddy dipasang, build, jalan
+sudo ./deploy/install.sh
+
+# 7. Proxy dan cron
 sudo cp deploy/Caddyfile /etc/caddy/Caddyfile   # ganti domainnya
-sudo systemctl daemon-reload && sudo systemctl enable --now walimah
 sudo systemctl reload caddy
 sudo crontab -e                                  # isi dari deploy/crontab.example
 ```
 
-**Build dilakukan di mesin lokal**, lalu dikirim — build Next di RAM 1 GB rawan OOM:
+Pembaruan sesudahnya cukup dua perintah, dan `install.sh` idempoten:
 
 ```bash
-npm run build
-./deploy/deploy.sh user@vps.contoh.com
+cd /opt/walimah && sudo git pull && sudo ./deploy/install.sh
+```
+
+**Build berjalan di VPS, bukan di mesin lokal.** `better-sqlite3`,
+`@node-rs/argon2`, dan `sharp` adalah addon native: bundel `standalone` ikut
+membawa binari platform tempat `npm install` dijalankan, jadi hasil build
+Windows berisi `argon2.win32-x64-msvc.node` dan mati saat boot di Ubuntu.
+[`deploy/deploy.sh`](deploy/deploy.sh) (jalur `rsync` tanpa git) tetap tersedia,
+tapi menolak berjalan dari mesin non-Linux justru karena alasan itu.
+
+### Porta backend dipilih otomatis
+
+VPS ini menampung aplikasi lain, jadi 3000 tidak boleh diasumsikan bebas —
+dan sebaliknya, Walimah tidak boleh merebut porta tetangganya.
+[`deploy/resolve-port.sh`](deploy/resolve-port.sh), yang dipanggil `install.sh`,
+memindai porta yang benar-benar sedang didengarkan (`ss -ltn`, alamat apa pun,
+bukan hanya loopback), melewati rentang porta ephemeral kernel, lalu memilih
+yang pertama bebas di **3100–3199**. Rentang 3000–3099 sengaja dilewati: di
+sanalah Next, WAHA, dan Grafana berkumpul.
+
+Hasilnya ditulis ke dua tempat, dan tidak ada satu pun angka porta yang ditulis
+tangan di berkas lain:
+
+| Berkas | Isi | Pembaca |
+| --- | --- | --- |
+| `/etc/walimah/env` | `PORT=` | systemd (`EnvironmentFile`), cron |
+| `/etc/walimah/port` | `WALIMAH_PORT=` | Caddy, lewat drop-in `caddy-port.conf` |
+
+Berkas porta sengaja dipisah dari berkas rahasia: memberi Caddy seluruh
+`/etc/walimah/env` berarti `AUTH_SECRET` dan token WhatsApp ikut terbaca lewat
+`/proc/<pid>/environ` oleh proses yang tidak membutuhkannya.
+
+Pemilihan terjadi **saat deploy, bukan saat start**. `server.js` standalone
+membaca `PORT` sekali dan mati `EADDRINUSE` bila porta terpakai, yang bersama
+`Restart=always` menjadi restart-loop; sebaliknya porta acak tiap boot akan
+membuat Caddy dan keempat entri cron menunjuk ke tempat yang salah setelah
+setiap restart. Karena itu deploy ulang **mempertahankan** porta yang sudah
+berlaku selama masih layak, dan hanya pindah bila porta itu benar-benar sudah
+direbut aplikasi lain — saat itu `install.sh` merestart Caddy, bukan sekadar
+me-reload-nya.
+
+Melihat porta yang berlaku, atau menggeser rentangnya:
+
+```bash
+sudo ./deploy/resolve-port.sh --show          # cetak porta saat ini
+sudo RANGE_START=3300 RANGE_END=3399 ./deploy/resolve-port.sh
 ```
 
 ### Rahasia yang wajib dibuat
