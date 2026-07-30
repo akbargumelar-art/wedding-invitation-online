@@ -1,5 +1,6 @@
 import { Reveal } from '@/components/ui/Reveal';
 import { StarOrnament } from '@/components/ui/Ornament';
+import { ArabesqueDivider, MegaMendung, KembangWajit } from './Ornaments';
 import type { SiteConfig } from '@/lib/content/types';
 
 /**
@@ -13,12 +14,29 @@ export function GreetingSection({ config }: { config: SiteConfig }) {
 
   return (
     <section id="salam" className="section relative overflow-hidden bg-cream">
+      {/* Mega Mendung samar di atas — motif batik Cirebon/Sunda pesisir.
+          Sengaja negatif top supaya keluar dari area judul dan tidak
+          mendorong visual heading turun. */}
+      <MegaMendung className="pointer-events-none absolute inset-x-0 -top-2 mx-auto h-6 w-full max-w-md text-terracotta-400/45 sm:-top-1 sm:h-8" />
+
+      {/* Kembang wajit ambient di kedua sudut bawah. */}
+      <KembangWajit
+        aria-hidden="true"
+        className="ornament-ambient pointer-events-none absolute bottom-4 left-4 h-10 w-10 text-gold-400"
+      />
+      <KembangWajit
+        aria-hidden="true"
+        className="ornament-ambient pointer-events-none absolute bottom-4 right-4 h-10 w-10 text-gold-400"
+        style={{ animationDelay: '3s' }}
+      />
+
       <div className="container-invite">
         <Reveal className="text-center">
           <StarOrnament size={36} className="mx-auto text-gold-400" />
           <p className="mt-5 font-display text-2xl text-jade-800 md:text-3xl">
             {config.salamPembuka}
           </p>
+          <ArabesqueDivider className="mt-4 mx-auto max-w-xs" />
         </Reveal>
 
         {hasQuote ? (

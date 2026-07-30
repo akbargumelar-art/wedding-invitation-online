@@ -53,7 +53,7 @@ export function Countdown({ targetMs }: { targetMs: number }) {
       <ul className="grid grid-cols-4 gap-2 sm:gap-3" aria-hidden="true">
         {units.map(([label, value]) => (
           <li key={label} className="card px-1 py-3 text-center">
-            <span className="numeric block font-display text-3xl text-jade-900 sm:text-4xl">
+            <span className="numeric shimmer-gold block font-display text-3xl sm:text-4xl">
               {value === null ? BELUM : String(value).padStart(2, '0')}
             </span>
             <span className="mt-1 block text-[0.6875rem] tracking-wider text-ink-muted uppercase">

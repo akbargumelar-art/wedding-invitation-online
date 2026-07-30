@@ -6,6 +6,7 @@ import { Reveal } from '@/components/ui/Reveal';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { FormStatus, PrivacyNote } from '@/components/ui/FormStatus';
 import { SectionHeading } from './SectionHeading';
+import { ArabesqueDivider, CeplokBunga } from './Ornaments';
 import { postForm } from '@/lib/client-api';
 import { envelopeSchema, fieldErrors, type ENVELOPE_METHODS } from '@/lib/validation';
 import { formatThousands } from '@/lib/text';
@@ -120,11 +121,28 @@ export function EnvelopeSection({
   }
 
   return (
-    <section id="amplop" className="section bg-jade-50">
+    <section id="amplop" className="section relative overflow-hidden bg-jade-50">
+      {/* Ceplok bunga ambient — sentuhan batik keraton di sudut.
+          Sengaja jauh di bawah judul agar tidak mengganggu spot heading. */}
+      <CeplokBunga
+        aria-hidden="true"
+        className="ornament-ambient pointer-events-none absolute top-24 -left-4 h-14 w-14 text-terracotta-400"
+      />
+      <CeplokBunga
+        aria-hidden="true"
+        className="ornament-ambient pointer-events-none absolute top-24 -right-4 h-14 w-14 text-terracotta-400"
+        style={{ animationDelay: '3s' }}
+      />
+
       <div className="container-invite">
-        <SectionHeading eyebrow="Tanda Kasih" title="Amplop Digital">
-          <p className="text-sm">Kehadiran dan doa Anda sudah lebih dari cukup bagi kami.</p>
+        <SectionHeading eyebrow="Tanda Kasih" title="Doa & Hadiah">
+          <p className="text-sm">
+            Kehadiran dan doa restu Bapak/Ibu/Saudara/i adalah hadiah paling berharga. Sekiranya
+            berkenan mengirim tanda kasih, kami sediakan opsi berikut dengan senang hati.
+          </p>
         </SectionHeading>
+
+        <ArabesqueDivider className="mt-4 mx-auto max-w-xs" />
 
         <Reveal className="mt-8">
           {/* Seksi tertutup secara default; dibuka lewat accordion (US-12). */}

@@ -33,10 +33,21 @@
   /* Emas terang dipakai untuk ornamen dan garis (grafis, ambang 3:1).
      `gold-600` adalah satu-satunya yang boleh menjadi teks di atas latar terang;
      nilainya sengaja tetap gelap agar lolos 4,7:1. */
+  --color-gold-100: #fbf1d9; /* wash lembut untuk background halus */
+  --color-gold-200: #f7e6ba; /* aksen halus, border tipis */
   --color-gold-300: #f2dca8;
   --color-gold-400: #e0b95f;
   --color-gold-500: #c08f2f;
   --color-gold-600: #8a6f34;
+
+  /* Aksen tambahan bernuansa Sunda + Islami untuk ornamen meriah.
+     Tidak dipakai untuk teks utama — grafis dan ornamen saja. */
+  --color-terracotta-300: #e8b295; /* bata halus, aksen kembang wajit */
+  --color-terracotta-400: #d38a68; /* bata sedang untuk ornamen aksen */
+  --color-terracotta-500: #b56845; /* bata gelap, ornamen fokus */
+  --color-sage-200: #c9dcc0; /* daun muda, vine ringan */
+  --color-sage-400: #7ba57f; /* daun sedang */
+  --color-emerald-deep: #0d3527; /* aksen kaligrafi Islami di border */
 
   --color-danger: #9b2c2c;
   --color-success: #1f7a5a;
@@ -367,10 +378,15 @@
   /* Ruang aman untuk tombol ganti tampilan di pojok kanan atas dan bilah
      navigasi di bawah. Ruang itu diletakkan pada seksi, bukan pada lembarnya:
      kalau di lembar, latar seksi (mis. hijau muda pada Lokasi) berhenti di batas
-     padding dan menyisakan pita krem di tepi layar. */
+     padding dan menyisakan pita krem di tepi layar.
+
+     Padding-top sengaja mepet ke atas — banyak seksi punya ornamen halus di
+     tepi atas (Mega Mendung, Ceplok) yang justru menghilang kalau judul
+     didorong terlalu jauh ke tengah. Tombol "Mode gulir" tetap muat karena
+     ia melayang absolute di atas seksi, bukan mengambil ruang layout. */
   .book-root[data-view='book'] .book-page .section {
-    padding-top: 3.5rem;
-    padding-bottom: 5rem;
+    padding-top: 0.5rem;
+    padding-bottom: 3rem;
     /* `.section` memakai content-visibility: auto untuk halaman panjang. Di mode
        buku itu justru merugikan: layout lembar yang belum aktif dilewati, dan
        Intersection Observer milik Reveal tidak pernah menyala — isinya tetap
@@ -379,7 +395,7 @@
   }
 
   .book-root[data-view='book'][data-draft='true'] .book-page .section {
-    padding-top: 5.25rem;
+    padding-top: 0.5rem;
   }
 
   /* Selubung untuk panah pembalik yang mengambang di tepi kiri dan kanan lembar.
@@ -595,5 +611,340 @@
 
   .ornament-divider::after {
     background: linear-gradient(to left, transparent, currentColor);
+  }
+}
+
+/* =============================================================================
+   Ornamen meriah — Islami + Sunda
+   Semua efek ringan, CSS-only, dan menghormati prefers-reduced-motion.
+   ============================================================================= */
+@layer utilities {
+  /* Kembang wajit — pola belah ketupat kecil untuk sudut kartu/section.
+     Ditempatkan sebagai pseudo-element supaya tidak menambah node HTML. */
+  .corner-wajit::before,
+  .corner-wajit::after {
+    content: '';
+    position: absolute;
+    width: 1.25rem;
+    height: 1.25rem;
+    background-color: var(--color-gold-400);
+    opacity: 0.55;
+    transform: rotate(45deg);
+    mask-image: radial-gradient(circle, black 40%, transparent 65%);
+    -webkit-mask-image: radial-gradient(circle, black 40%, transparent 65%);
+    pointer-events: none;
+  }
+  .corner-wajit::before {
+    top: 0.5rem;
+    left: 0.5rem;
+  }
+  .corner-wajit::after {
+    bottom: 0.5rem;
+    right: 0.5rem;
+  }
+
+  /* Sparkle — tiga titik kecil emas yang berkedip pelan (~6s cycle).
+     Dipakai di header cover atau eyebrow tertentu untuk kesan "meriah". */
+  .sparkle-set {
+    position: relative;
+    display: inline-block;
+  }
+  .sparkle-set::before,
+  .sparkle-set::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--color-gold-400) 30%, transparent 70%);
+    opacity: 0;
+    animation: sparkle 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .sparkle-set::before {
+    top: -0.5rem;
+    left: -1.1rem;
+    animation-delay: 0s;
+  }
+  .sparkle-set::after {
+    top: -0.75rem;
+    right: -1.25rem;
+    animation-delay: 2s;
+    width: 5px;
+    height: 5px;
+  }
+
+  @keyframes sparkle {
+    0%, 100% { opacity: 0; transform: scale(0.6); }
+    40%, 60% { opacity: 0.85; transform: scale(1); }
+  }
+
+  /* Petal — kelopak/daun jatuh perlahan.
+     Elemen absolute di layer khusus; tidak block interaction, tidak affect layout. */
+  .petal-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 5;
+  }
+  .petal {
+    position: absolute;
+    top: -3rem;
+    width: 12px;
+    height: 12px;
+    opacity: 0;
+    background: radial-gradient(
+      ellipse at 40% 30%,
+      var(--color-gold-300) 15%,
+      var(--color-terracotta-300) 55%,
+      transparent 75%
+    );
+    border-radius: 60% 40% 55% 45%;
+    animation: petal-fall linear infinite;
+    will-change: transform, opacity;
+  }
+  .petal.leaf {
+    background: radial-gradient(
+      ellipse at 40% 30%,
+      var(--color-sage-200) 20%,
+      var(--color-sage-400) 60%,
+      transparent 80%
+    );
+    border-radius: 0 100% 0 100%;
+    width: 14px;
+    height: 10px;
+  }
+
+  @keyframes petal-fall {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+    10% {
+      opacity: 0.7;
+    }
+    90% {
+      opacity: 0.55;
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(var(--petal-drift, 40px), calc(100vh + 4rem), 0) rotate(var(--petal-spin, 240deg));
+    }
+  }
+
+  /* Gradient wash untuk section — sentuhan hangat cream+gold di bagian atas seksi.
+     Sengaja rendah (2.5rem) supaya tidak mendorong judul turun secara visual;
+     efeknya cuma aksen tipis di garis atas. */
+  .section-wash {
+    position: relative;
+  }
+  .section-wash::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2.5rem;
+    background: linear-gradient(to bottom, var(--color-gold-100), transparent);
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .section-wash > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Kaligrafi wrapper — Bismillah/doa singkat pakai font Amiri.
+     Warna tidak di-set di sini supaya pemanggil bebas memilih (mis. gold-600
+     di atas cream, atau gold-300 di atas jade-800). */
+  .calli {
+    font-family: var(--font-arabic);
+    letter-spacing: 0;
+    line-height: 1.8;
+  }
+
+  /* Vine — garis dekoratif dengan simbol daun di tengah. Blok, bukan inline. */
+  .vine-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--color-sage-400);
+    margin: 1.5rem auto;
+    max-width: 20rem;
+  }
+  .vine-divider::before,
+  .vine-divider::after {
+    content: '';
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(to right, transparent, var(--color-sage-400), transparent);
+    opacity: 0.6;
+  }
+
+  /* Honor prefers-reduced-motion — semua animasi berulang di-off. */
+  @media (prefers-reduced-motion: reduce) {
+    .sparkle-set::before,
+    .sparkle-set::after,
+    .petal {
+      animation: none !important;
+      opacity: 0 !important;
+    }
+  }
+
+  /* ---------------------------------------------------------------------------
+     Pattern batik SVG — di-repeat halus sebagai background section.
+     Data-URL kecil (< 1 KB) supaya tidak perlu request tambahan.
+     --------------------------------------------------------------------------- */
+  .batik-mendung {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='60' viewBox='0 0 120 60' fill='none' stroke='%23c08f2f' stroke-width='0.7' stroke-opacity='0.20' stroke-linecap='round'><path d='M4 44 C 10 30, 22 30, 24 44 C 26 34, 38 34, 40 44 C 42 38, 48 38, 50 44'/><path d='M60 44 C 66 30, 78 30, 80 44 C 82 34, 94 34, 96 44 C 98 38, 104 38, 106 44'/><path d='M32 20 C 38 8, 50 8, 52 20 C 54 12, 66 12, 68 20'/><path d='M88 20 C 94 8, 106 8, 108 20'/></svg>");
+    background-repeat: repeat;
+    background-size: 240px 120px;
+    background-position: 0 0;
+  }
+  .batik-ceplok {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80' fill='none' stroke='%23b56845' stroke-width='0.6' stroke-opacity='0.18'><circle cx='40' cy='40' r='4'/><ellipse cx='40' cy='24' rx='2' ry='4'/><ellipse cx='40' cy='56' rx='2' ry='4'/><ellipse cx='24' cy='40' rx='4' ry='2'/><ellipse cx='56' cy='40' rx='4' ry='2'/><ellipse cx='28' cy='28' rx='3' ry='2' transform='rotate(-45 28 28)'/><ellipse cx='52' cy='28' rx='3' ry='2' transform='rotate(45 52 28)'/><ellipse cx='28' cy='52' rx='3' ry='2' transform='rotate(45 28 52)'/><ellipse cx='52' cy='52' rx='3' ry='2' transform='rotate(-45 52 52)'/></svg>");
+    background-repeat: repeat;
+    background-size: 160px 160px;
+  }
+  /* Wash tipis versi batik — dipakai sebagai lapisan di atas bg section. */
+  .pattern-wash {
+    position: relative;
+    isolation: isolate;
+  }
+  .pattern-wash::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: inherit;
+    opacity: 0.45;
+    pointer-events: none;
+    z-index: -1;
+    mask-image: linear-gradient(to bottom, black, transparent 40%, transparent 60%, black);
+    -webkit-mask-image: linear-gradient(to bottom, black, transparent 40%, transparent 60%, black);
+  }
+
+  /* ---------------------------------------------------------------------------
+     Page flip — mode buku
+     Transisi 3D dengan perspective; halaman prev/next dimiringkan sisi masing²
+     saat berpindah aktif. Ringan (transform + opacity only) dan menghormati
+     reduced-motion.
+     --------------------------------------------------------------------------- */
+  .book-stage {
+    perspective: 1600px;
+  }
+  .book-page {
+    transform-style: preserve-3d;
+    transition:
+      transform 0.55s var(--ease-out-soft),
+      opacity 0.45s var(--ease-out-soft);
+  }
+  body[data-view='book'] .book-page[data-state='active'] {
+    transform: rotateY(0deg) translateZ(0);
+    opacity: 1;
+  }
+  body[data-view='book'] .book-page[data-state='prev'] {
+    transform: rotateY(35deg) translateX(-8%);
+    transform-origin: right center;
+    opacity: 0;
+  }
+  body[data-view='book'] .book-page[data-state='next'] {
+    transform: rotateY(-35deg) translateX(8%);
+    transform-origin: left center;
+    opacity: 0;
+  }
+
+  /* ---------------------------------------------------------------------------
+     Card lift + glow — hover di desktop; touch device tidak ter-trigger.
+     --------------------------------------------------------------------------- */
+  @media (hover: hover) and (pointer: fine) {
+    .card {
+      transition:
+        transform 0.35s var(--ease-out-soft),
+        box-shadow 0.35s var(--ease-out-soft);
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 4px 12px rgb(16 60 45 / 0.08),
+        0 20px 40px -18px rgb(178 140 64 / 0.35);
+    }
+  }
+
+  /* ---------------------------------------------------------------------------
+     Reveal ditingkatkan — arah slide bergantian per posisi index.
+     Class tambahan (opt-in) untuk Reveal yang mau efek pindah dari samping.
+     --------------------------------------------------------------------------- */
+  .reveal-slide-left {
+    opacity: 0;
+    transform: translateX(-28px);
+    transition:
+      opacity 0.7s var(--ease-out-soft),
+      transform 0.7s var(--ease-out-soft);
+  }
+  .reveal-slide-left[data-visible='true'] {
+    opacity: 1;
+    transform: none;
+  }
+  .reveal-slide-right {
+    opacity: 0;
+    transform: translateX(28px);
+    transition:
+      opacity 0.7s var(--ease-out-soft),
+      transform 0.7s var(--ease-out-soft);
+  }
+  .reveal-slide-right[data-visible='true'] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Shimmer emas — dipakai di angka countdown besar. Bergerak lambat. */
+  .shimmer-gold {
+    background: linear-gradient(
+      100deg,
+      var(--color-gold-500) 20%,
+      var(--color-gold-300) 40%,
+      var(--color-gold-500) 60%
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 6s linear infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Ornamen ambient — SVG kecil yang mengambang di sudut section dengan
+     "napas" pelan (breathing scale). Tidak menarik perhatian, tapi menghidupkan
+     ruang kosong. */
+  .ornament-ambient {
+    animation: breathe 8s ease-in-out infinite;
+    opacity: 0.35;
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.28; }
+    50% { transform: scale(1.08); opacity: 0.42; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .book-page,
+    .reveal-slide-left,
+    .reveal-slide-right,
+    .card,
+    .shimmer-gold,
+    .ornament-ambient {
+      animation: none !important;
+      transition: opacity 0.2s ease !important;
+      transform: none !important;
+    }
+    .shimmer-gold {
+      color: var(--color-gold-500);
+      -webkit-text-fill-color: var(--color-gold-500);
+    }
   }
 }
