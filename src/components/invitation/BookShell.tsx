@@ -96,7 +96,11 @@ export function BookShell({
   const go = useCallback(
     (delta: number) => {
       setIndex((currentIndex) => {
-        const next = Math.min(Math.max(currentIndex + delta, 0), pageCount - 1);
+        if (pageCount === 0) return currentIndex;
+        // Wrap-around: halaman terakhir + panah kanan → halaman awal, dan
+        // sebaliknya. Modulo positif menjamin hasil selalu 0..pageCount-1
+        // untuk delta negatif sekalipun.
+        const next = ((currentIndex + delta) % pageCount + pageCount) % pageCount;
         if (next !== currentIndex) navigated.current = true;
         return next;
       });
@@ -325,6 +329,8 @@ function BookNav({
   onGoTo: (target: number) => void;
 }) {
   const last = pages.length - 1;
+  const isFirst = index === 0;
+  const isLast = index === last;
 
   return (
     <nav aria-label="Navigasi halaman undangan" className="book-nav">
@@ -333,12 +339,15 @@ function BookNav({
           supaya seluruh navigasi halaman berada dalam satu landmark, tetapi
           harus di luar `.book-nav-bar`: `backdrop-filter` pada bilah itu
           menjadikannya containing block, dan `top: 50%` akan dihitung terhadap
-          tinggi bilah, bukan tinggi layar. */}
+          tinggi bilah, bukan tinggi layar.
+
+          Wrap-around aktif: di halaman pertama, panah kiri membawa tamu ke
+          halaman terakhir; di halaman terakhir, panah kanan kembali ke
+          halaman pertama. Panah tidak pernah disabled. */}
       <button
         type="button"
         onClick={() => onGo(-1)}
-        disabled={index === 0}
-        aria-label="Halaman sebelumnya"
+        aria-label={isFirst ? 'Kembali ke halaman terakhir' : 'Halaman sebelumnya'}
         className="book-arrow book-arrow-prev"
       >
         <span aria-hidden="true">‹</span>
@@ -347,8 +356,7 @@ function BookNav({
       <button
         type="button"
         onClick={() => onGo(1)}
-        disabled={index === last}
-        aria-label="Halaman berikutnya"
+        aria-label={isLast ? 'Kembali ke halaman awal' : 'Halaman berikutnya'}
         className="book-arrow book-arrow-next"
       >
         <span aria-hidden="true">›</span>
