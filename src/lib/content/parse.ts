@@ -232,6 +232,7 @@ export function parseSchedule(rows: string[][], warnings: string[]): ScheduleIte
       zona,
       lokasi: record['lokasi'] ?? '',
       catatan: record['catatan'] ?? '',
+      gmapsUrl: record['gmaps_url'] ?? '',
       startsAtMs,
       // Jam selesai yang kosong harus tetap null, bukan tengah malam — kalau
       // tidak, berkas .ics akan punya DTEND sebelum DTSTART.

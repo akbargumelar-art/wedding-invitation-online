@@ -18,7 +18,7 @@ const WRITE_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 
 const RANGES = {
   config: 'Config!A:B',
-  jadwal: 'Jadwal!A:H',
+  jadwal: 'Jadwal!A:I',
   galeri: 'Galeri!A:D',
   rekening: 'Rekening!A:D',
   tamu: 'Tamu!A:G',
