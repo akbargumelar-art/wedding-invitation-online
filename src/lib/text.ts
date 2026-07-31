@@ -100,6 +100,46 @@ export function formatThousands(input: string): string {
   return digits ? Number.parseInt(digits, 10).toLocaleString('id-ID') : '';
 }
 
+/**
+ * Rapikan nomor WhatsApp menjadi format internasional tanpa tanda plus
+ * (mis. `081234567890` → `6281234567890`).
+ *
+ * Bentuk yang ditemui di daftar tamu nyata sangat beragam: `0812-3456-7890`,
+ * `+62 812 3456 7890`, `62812...`, bahkan `812...` tanpa awalan apa pun. WAHA
+ * menuntut satu bentuk saja, dan nomor yang salah format tidak menghasilkan
+ * galat — pesannya hanya tidak pernah sampai. Karena itu normalisasinya
+ * dilakukan sekali di sini, saat menyimpan, bukan saat mengirim.
+ *
+ * Nomor non-Indonesia yang sudah ditulis lengkap dengan kode negara dibiarkan
+ * apa adanya. Kembaliannya string kosong bila tidak ada yang masuk akal.
+ */
+export function normalizePhone(input: string): string {
+  const digits = input.replace(/\D/g, '');
+  if (!digits) return '';
+
+  // 0812… → 62812…
+  if (digits.startsWith('0')) {
+    const rest = digits.slice(1);
+    return rest ? `62${rest}` : '';
+  }
+
+  // Sudah berkode negara Indonesia.
+  if (digits.startsWith('62')) return digits;
+
+  // 812… — kode negara terlupakan, bentuk yang paling sering ditempel dari
+  // kontak ponsel. Nomor seluler Indonesia selalu diawali 8 setelah kode negara.
+  if (digits.startsWith('8')) return `62${digits}`;
+
+  // Kode negara lain: dipercaya apa adanya.
+  return digits;
+}
+
+/** Tampilkan nomor internasional dalam bentuk yang enak dibaca manusia. */
+export function formatPhone(phone: string): string {
+  if (!phone) return '';
+  return `+${phone}`;
+}
+
 /** Inisial untuk avatar ucapan, maksimum 2 huruf. */
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

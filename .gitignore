@@ -19,9 +19,9 @@ credentials.json
 *.key
 
 # Data runtime — hanya ada di server.
-# Satu-satunya berkas di /data yang ikut di-commit adalah seed.json: ia dibaca
-# saat runtime sebagai lapis fallback terakhir (lihat src/lib/content/snapshot.ts),
-# jadi ia harus ikut ter-pull ke VPS.
+# Satu-satunya berkas di /data yang ikut di-commit adalah seed.json: ia mengisi
+# database pada pemasangan baru (lihat src/lib/content/seed.ts), jadi ia harus
+# ikut ter-pull ke VPS.
 /data/*
 !/data/seed.json
 /var

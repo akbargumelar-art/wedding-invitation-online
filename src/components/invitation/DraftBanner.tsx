@@ -1,7 +1,7 @@
 /**
  * Banner peringatan mode dummy (mitigasi R-9).
  *
- * Tampil selama `Config.is_draft = TRUE`. Ini pengaman terakhir agar undangan
+ * Tampil selama sakelar "Masih draf" di dashboard admin masih menyala. Ini pengaman terakhir agar undangan
  * berisi data contoh tidak pernah tersebar tanpa disadari — checklist Lampiran D
  * mewajibkan flag ini disetel FALSE sebelum link disebar.
  *
@@ -18,8 +18,8 @@ export function DraftBanner() {
       MODE DUMMY — data masih contoh.
       <span className="hidden sm:inline">
         {' '}
-        Setel <code className="font-mono">is_draft = FALSE</code> di Sheet sebelum menyebar
-        undangan.
+        Matikan sakelar <code className="font-mono">Masih draf</code> di dashboard admin
+        sebelum menyebar undangan.
       </span>
     </div>
   );

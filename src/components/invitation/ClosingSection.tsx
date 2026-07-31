@@ -3,10 +3,10 @@ import { ArchOrnament, StarOrnament } from '@/components/ui/Ornament';
 import { Gunungan, PucukRebung, KembangWajit } from './Ornaments';
 import type { SiteConfig } from '@/lib/content/types';
 
-/** Penutup: doa dan salam penutup, keduanya dari Sheet (US-03). */
+/** Penutup: doa dan salam penutup, keduanya dari Pengaturan (US-03). */
 export function ClosingSection({ config }: { config: SiteConfig }) {
   // Urutan mengikuti Config.urutan_mempelai. Sebelumnya di-hardcode
-  // wanita-lalu-pria dan mengabaikan setting Sheet, sehingga penutup
+  // wanita-lalu-pria dan mengabaikan urutan di Pengaturan, sehingga penutup
   // selalu memakai urutan berbeda dari halaman sampul.
   const pasangan =
     config.urutanMempelai === 'pria_dulu'

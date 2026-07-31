@@ -1,8 +1,8 @@
 # Walimah — Web Undangan Pernikahan Digital Islami
 
 Implementasi dari [`pdr_wedding.md`](pdr_wedding.md). Undangan satu halaman bertema islami,
-di-host sendiri di VPS Ubuntu, dengan **Google Sheet sebagai CMS**, link personal per tamu,
-RSVP, buku ucapan bermoderasi, amplop digital QRIS, dan dashboard admin.
+di-host sendiri di VPS Ubuntu, dengan **seluruh isi diatur dari dashboard admin**, link
+personal per tamu, RSVP, buku ucapan bermoderasi, amplop digital QRIS, dan rekap kehadiran.
 
 Cakupan yang dibangun: **MVP + v1.1** (Modul A, B, dan C pada PRD).
 
@@ -15,13 +15,13 @@ npm install
 npm run dev            # http://localhost:3000
 ```
 
-Tanpa kredensial Google Sheets, aplikasi memakai data dummy di `data/seed.json` —
-seluruh halaman langsung tampil lengkap.
+Pada database yang masih kosong, aplikasi mengisinya sekali dari `data/seed.json` —
+seluruh halaman langsung tampil lengkap dengan data contoh yang siap disunting di `/admin`.
 
 | Alamat | Isi |
 |---|---|
 | `/` | Undangan umum (sapaan fallback) |
-| `/to/budi-santoso` | Undangan personal (slug dari tab `Tamu`) |
+| `/to/budi-santoso` | Undangan personal (slug dari daftar tamu) |
 | `/admin` | Dashboard admin |
 
 Kredensial admin untuk pengembangan: `admin` / `walimah-dev-2026`.
@@ -32,7 +32,9 @@ Kredensial admin untuk pengembangan: `admin` / `walimah-dev-2026`.
 |---|---|
 | `npm run dev` | Server pengembangan |
 | `npm run build` | Build produksi (`output: standalone`) |
-| `npm run start` | Menjalankan hasil build |
+| `npm run start` | Menjalankan hasil build lewat `next start` (hanya untuk pemeriksaan cepat — lihat catatan di bawah) |
+| `npm run pack:standalone` | Melengkapi `.next/standalone` dengan `static/`, `public/`, dan `seed.json` |
+| `npm run start:standalone` | Menjalankan paket standalone, persis seperti systemd di VPS |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript mode `strict` |
 | `npm test` | Tes unit (Vitest) |
@@ -79,20 +81,23 @@ dependensi Next sendiri dan baru bisa hilang lewat rilis patch Next.
 ## 2. Arsitektur singkat
 
 ```
-Google Sheet ──(Sheets API, read-only, ISR 60 dtk)──▶ Next.js 15 ──▶ Tamu
-      ▲                                                  │
-      │                                                  ├─▶ SQLite (WAL)  data transaksional
-      └──(cron 6 jam, akun tulis terpisah)───────────────┤
-                                                         ├─▶ /var/walimah/uploads  bukti transfer
-                                                         └─▶ snapshot.json         cadangan konten
+Dashboard admin ──▶ SQLite (WAL) ──(cache ISR)──▶ Next.js 15 ──▶ Tamu
+                          │                            │
+   isi undangan +         │                            ├─▶ /var/walimah/media    gambar undangan (publik)
+   data transaksional ────┘                            └─▶ /var/walimah/uploads  bukti transfer (privat)
+
+   data/seed.json ──(sekali, saat database masih kosong)──▶ SQLite
 ```
 
 Tiga aturan yang tidak boleh dilanggar:
 
-1. **Sheets API tidak pernah dipanggil pada jalur request tamu.** Konten selalu dari cache ISR.
-2. **Kegagalan Sheets tidak pernah terlihat tamu.** Urutan sumber: Sheets → `snapshot.json` → `data/seed.json`.
+1. **Tidak ada panggilan jaringan pada jalur request tamu.** Isi undangan dibaca dari SQLite
+   lokal, dan hasilnya masih dilapisi cache ISR.
+2. **Tamu tidak pernah melihat halaman error karena masalah konten.** Baris yang rusak
+   dilewati parser, dan bila database gagal dibaca sama sekali, `data/seed.json` dipakai
+   langsung sebagai jaring pengaman terakhir.
 3. **Tidak ada nilai konten yang di-hardcode.** Semua teks, tanggal, foto, dan nomor rekening
-   berasal dari Sheet atau environment variable.
+   berasal dari dashboard atau environment variable.
 
 ### Palet
 
@@ -121,7 +126,9 @@ Titik masuk penting:
 | Berkas | Peran |
 |---|---|
 | [src/lib/content/index.ts](src/lib/content/index.ts) | Satu-satunya pintu baca konten + cache ISR |
-| [src/lib/content/parse.ts](src/lib/content/parse.ts) | Parser Sheet tahan banting (baris rusak dilewati) |
+| [src/lib/content/parse.ts](src/lib/content/parse.ts) | Parser konten tahan banting (baris rusak dilewati) |
+| [src/lib/db/content.ts](src/lib/db/content.ts) | Baca–tulis isi undangan yang dipakai dashboard |
+| [src/lib/admin-content.ts](src/lib/admin-content.ts) | Kerangka route admin: sesi, validasi, audit, revalidasi |
 | [src/lib/db/schema.ts](src/lib/db/schema.ts) | Skema SQLite |
 | [src/lib/validation.ts](src/lib/validation.ts) | Skema Zod bersama klien & server |
 | [src/lib/auth.ts](src/lib/auth.ts) | Sesi admin, CSRF, penguncian akun |
@@ -129,6 +136,23 @@ Titik masuk penting:
 | [src/lib/notify/index.ts](src/lib/notify/index.ts) | Antrean & pengiriman notifikasi WhatsApp (§6) |
 | [src/lib/env.ts](src/lib/env.ts) | Konfigurasi env — **wajib bebas modul `node:`** (lihat catatan di bawah) |
 | [src/components/invitation/BookShell.tsx](src/components/invitation/BookShell.tsx) | Tampilan buku vs gulir (§2.1) |
+
+### instrumentation.ts tidak boleh mengimpor modul aplikasi
+
+[src/instrumentation.ts](src/instrumentation.ts) dikompilasi sebagai bundel
+tersendiri. Mengimpor modul aplikasi ke dalamnya — termasuk lewat `await import()`
+— menggandakan modul yang sama di dua graf webpack, dan akibatnya muncul jauh dari
+penyebabnya:
+
+- `next build` tetap lolos;
+- halaman yang sudah dipra-render tetap tersaji 200, jadi sekilas normal;
+- tetapi setiap halaman yang perlu dirender **atas permintaan** balas 500 dengan
+  `TypeError: a[d] is not a function` dari `webpack-runtime.js`.
+
+Karena itu pekerjaan latar belakang tidak dinyalakan dari sana. Pencacah antrean
+undangan dinyalakan dari dalam graf aplikasi lewat `ensureOutboxWorker()`
+([src/lib/waha/worker.ts](src/lib/waha/worker.ts)), dengan
+`/api/cron/invitations` sebagai jaring pengaman setelah restart.
 
 ### env.ts tidak boleh menyentuh modul `node:`
 
@@ -210,41 +234,59 @@ Tiga hal yang gampang terlewat kalau menyentuh berkas ini:
 
 ---
 
-## 3. Menghubungkan Google Sheet
+## 3. Mengisi undangan lewat dashboard
 
-1. Buat spreadsheet dengan tab `Config`, `Jadwal`, `Galeri`, `Rekening`, `Tamu`.
-   Nama tab **case-sensitive** — aplikasi membaca range tetap, dan salah
-   kapitalisasi membuat tab tidak terbaca tanpa pesan galat.
+Seluruh isi undangan diatur di `/admin`. Tidak ada spreadsheet, tidak ada service
+account, dan tidak ada langkah sinkronisasi: dashboard menulis ke SQLite yang sama
+dengan yang dibaca halaman tamu, lalu membatalkan cache-nya seketika — perubahan
+tampil pada permintaan berikutnya.
 
-   Untuk mengisinya dengan contoh yang bentuknya sudah pasti benar:
+| Tab | Yang diatur |
+|---|---|
+| **Pengaturan** | Status draf, mode syar'i, data kedua mempelai, kutipan dan salam, lokasi acara, QRIS, sampul, musik latar, pembukaan/penutupan RSVP |
+| **Jadwal** | Rangkaian acara: akad, resepsi, syukuran |
+| **Galeri** | Foto beserta urutan tampilnya |
+| **Rekening** | Nomor rekening penerima hadiah |
+| **Tamu** | Daftar tamu, link personal masing-masing, impor massal |
+| **Media** | Berkas gambar yang sudah diunggah |
+| **Ucapan** / **Amplop** | Moderasi ucapan dan verifikasi konfirmasi amplop |
 
-   ```bash
-   npx tsx scripts/seed-to-csv.ts /tmp/sheet-csv
-   ```
+Pada pemasangan baru, database diisi sekali dari `data/seed.json` sehingga dashboard
+tidak pernah tampil kosong. Sesudah itu berkas tersebut tidak dibaca lagi — satu-satunya
+sumber isi undangan adalah database.
 
-   lalu impor tiap berkas ke tab bernama sama lewat **File → Import → Upload →
-   Replace current sheet**. Jangan menyalin-tempel dari terminal: emulator
-   membungkus baris panjang seperti `quote_arab` dan `kalimat_pembuka`, dan
-   pembungkusan itu menghancurkan struktur kolom saat ditempel.
-2. Buat **dua** service account di Google Cloud:
-   - satu dengan scope `spreadsheets.readonly` untuk membaca konten;
-   - satu dengan scope `spreadsheets` khusus untuk cron export.
-3. Bagikan spreadsheet ke alamat email kedua service account.
-   **Jangan** menyetel "siapa saja yang memiliki tautan".
-4. Isi `GOOGLE_SHEET_ID` dan `GOOGLE_CREDENTIALS_PATH` (serta
-   `GOOGLE_WRITE_CREDENTIALS_PATH`) di berkas env.
+Konsekuensinya patut disadari: tidak ada lagi salinan konten di luar VPS. Backup harian
+sudah mencakup seluruh isi undangan (ikut di dalam berkas `VACUUM INTO`), dan gambar
+yang diunggah dicerminkan ke `BACKUP_DIR/media/`. Yang belum diuji tidak dapat disebut
+backup — lakukan satu kali restore percobaan sebelum menyebar undangan.
 
-Perubahan di Sheet tampil dalam ≤ 60 detik. Untuk memaksa segera:
+### Memasukkan daftar tamu
 
-```bash
-curl -X POST https://undangan.domain.com/api/revalidate \
-  -H "Authorization: Bearer $REVALIDATE_SECRET"
+Tab **Tamu** menerima tempelan langsung dari Excel lewat tombol **Impor massal**: satu
+nama per baris, kolom kedua (dipisah koma, titik koma, atau TAB) dibaca sebagai kategori.
+
+```
+Keluarga Bapak Ahmad
+Rina Wulandari, Teman Kantor
+Budi Santoso, Keluarga
 ```
 
-Kunci `Config` tambahan di luar Lampiran A (opsional, boleh dikosongkan):
-`cover_image`, `doa_penutup`, `salam_penutup`, `pria_anak_ke`, `wanita_anak_ke`.
+Slug link dibuat otomatis dari nama, dan nama yang slug-nya sudah ada **diperbarui**
+alih-alih digandakan — jadi menempel ulang daftar yang sudah diperbaiki tidak pernah
+mematikan link yang sudah tersebar. Tombol **Salin link** di tiap baris menyiapkan
+alamat yang tinggal dikirim ke tamu.
 
-### Cara isi Sheet memengaruhi tampilan
+### Gambar
+
+Setiap isian gambar punya tombol **Unggah** sendiri. Berkas disimpan di `MEDIA_DIR`
+(di luar web root) dan disajikan lewat `/media/<berkas>` dengan nama acak berbentuk
+UUID. Kolomnya juga tetap menerima URL biasa, sehingga foto yang sudah telanjur ada
+di Drive atau Cloudinary tidak perlu diunggah ulang.
+
+Bukti transfer dari tamu **tidak** disimpan di sana: berkas itu masuk ke `UPLOAD_DIR`
+yang terpisah dan hanya dapat dibaca lewat route admin terautentikasi.
+
+### Cara isi undangan memengaruhi tampilan
 
 Beberapa keputusan tata letak diambil dari bentuk datanya, bukan dari kode. Ini
 disengaja: mempelai dapat mengubah susunan undangan tanpa menyentuh satu baris
@@ -252,20 +294,30 @@ program pun.
 
 | Yang Anda isi | Yang terjadi |
 |---|---|
-| `pria_anak_ke = ketiga` | Kalimatnya menjadi "Putra ketiga dari …". Dikosongkan → "Putra dari …" |
-| Dua baris `Jadwal` dengan **tanggal sama** | Keduanya menyatu dalam satu kartu di bawah satu tanggal (mis. akad + resepsi) |
-| Baris `Jadwal` dengan tanggal berbeda | Mendapat kartunya sendiri (mis. syukuran pranikah) |
-| Baris `Jadwal` **terakhir** | Menentukan hitung mundur dan tanggal di sampul — isi acara utama di baris paling bawah |
-| Tab `Galeri` kosong | Halaman galeri hilang seluruhnya, termasuk titik navigasinya di mode buku |
-| `backsound_url` kosong | Tombol musik tidak muncul dan tidak ada audio yang diunduh tamu |
-| `mode_syari = TRUE` | Seluruh foto diganti ornamen, galeri disembunyikan apa pun isinya |
+| **Anak ke-** = `ketiga` | Kalimatnya menjadi "Putra ketiga dari …". Dikosongkan → "Putra dari …" |
+| Dua acara dengan **tanggal sama** | Keduanya menyatu dalam satu kartu di bawah satu tanggal (mis. akad + resepsi) |
+| Acara dengan tanggal berbeda | Mendapat kartunya sendiri (mis. syukuran pranikah) |
+| Acara **paling akhir** | Menentukan hitung mundur dan tanggal di sampul |
+| Galeri kosong | Halaman galeri hilang seluruhnya, termasuk titik navigasinya di mode buku |
+| **Musik latar** kosong | Tombol musik tidak muncul dan tidak ada audio yang diunduh tamu |
+| **Mode syar'i** aktif | Seluruh foto diganti ornamen, galeri disembunyikan apa pun isinya |
+| Lebih dari 3 rekening aktif | Hanya tiga yang pertama tampil — dashboard memperingatkan bila ini terjadi |
 
-Undangan yang dikirim saat ini **tidak memuat galeri** — tab `Galeri` sengaja
-dikosongkan. Fiturnya tetap ada dan tetap diuji; tinggal menambah baris foto di
-Sheet untuk menyalakannya kembali.
+Undangan yang dikirim saat ini **tidak memuat galeri** — galerinya sengaja dikosongkan.
+Fiturnya tetap ada dan tetap diuji; tinggal menambah foto di tab Galeri untuk
+menyalakannya kembali.
 
-Musik latar: taruh berkasnya di `public/audio/` lalu isi `backsound_url`.
+Musik latar: taruh berkasnya di `public/audio/` lalu isi kolom **Musik latar**.
 Rinciannya di [public/audio/README.md](public/audio/README.md).
+
+Perubahan tampil seketika setelah disimpan. Bila konten pernah diubah dari luar
+dashboard (mis. skrip pemulihan yang menulis langsung ke database), revalidasi dapat
+dipaksa dengan:
+
+```bash
+curl -X POST https://undangan.domain.com/api/revalidate \
+  -H "Authorization: Bearer $REVALIDATE_SECRET"
+```
 
 ---
 
@@ -298,12 +350,6 @@ cd /opt/walimah
 # 5. Rahasia — jalankan sekali untuk menyalin templat, isi, lalu ulangi
 sudo ./deploy/install.sh                 # berhenti: "isi seluruh nilai ISI-INI"
 sudo nano /etc/walimah/env               # isi ADMIN_PASSWORD_HASH, AUTH_SECRET, dst.
-# 640 root:walimah, BUKAN 600 root:root. Berkas ini dibaca oleh aplikasi yang
-# berjalan sebagai user walimah, bukan oleh systemd sebagai root seperti env.
-# Dengan 600 root:root, readFileSync gagal — dan sheets.ts menelan galatnya
-# lalu diam-diam kembali ke data seed. Situs tampil normal dengan isi dummy,
-# tanpa satu pun pesan galat.
-sudo install -m 640 -o root -g walimah credentials.json /etc/walimah/credentials.json
 
 # 6. Pasang: porta dipilih, unit systemd + drop-in Caddy dipasang, build, jalan
 sudo ./deploy/install.sh
@@ -451,11 +497,18 @@ npm run hash-password -- "kata sandi panjang Anda"   # ADMIN_PASSWORD_HASH
 
 | Lapisan | Perintah | Cakupan |
 |---|---|---|
-| Unit (Vitest) | `npm test` | 199 tes — parser Sheet, slug, validator, countdown & timezone, ICS, magic bytes upload, template notifikasi, keempat driver pengiriman, serta kontras seluruh pasangan warna tema. Coverage `src/lib` 94%. |
-| E2E + integrasi API (Playwright) | `npm run test:e2e` | 78 tes — seluruh 12 skenario Lampiran C, kontrak API (201/403/413/422/429), kontrol akses admin, notifikasi keluar, audit responsif, hidrasi tanpa error, serta navigasi mode buku dan peralihan tampilan. |
+| Unit (Vitest) | `npm test` | 270 tes — parser konten, round-trip pengaturan dashboard, impor massal tamu, normalisasi nomor WhatsApp, parser balasan tamu, jeda acak pengiriman, slug, validator, countdown & timezone, ICS, magic bytes upload, template notifikasi, keempat driver pengiriman, serta kontras seluruh pasangan warna tema. |
+| E2E + integrasi API (Playwright) | `npm run test:e2e` | 86 tes — seluruh 12 skenario Lampiran C, penyuntingan isi undangan lewat dashboard sampai terlihat tamu, pengiriman undangan lewat WAHA tiruan beserta bukti adanya jeda antar-pesan, penolakan webhook tanpa tanda tangan, kontrak API (201/403/413/422/429), kontrol akses admin, notifikasi keluar, audit responsif, hidrasi tanpa error, serta navigasi mode buku dan peralihan tampilan. |
 
-E2E berjalan pada build produksi dengan database, direktori upload, dan snapshot
-terpisah, sehingga tidak menyentuh data pengembangan.
+E2E menjalankan **paket standalone** (`node .next/standalone/server.js`), berkas yang
+sama persis dengan yang dijalankan systemd di VPS — bukan `next start`. Perbedaannya
+penting: `next start` tidak didukung pada `output: standalone`, dan gejalanya menipu —
+halaman yang sudah dipra-render tetap tersaji, tetapi begitu sebuah halaman perlu
+dirender ulang atas permintaan (persis yang terjadi setiap kali konten disunting),
+pemuatan chunk gagal dan halaman balas 500.
+
+Database, direktori upload, dan direktori media diarahkan ke lokasi terpisah, sehingga
+suite tidak pernah menyentuh data pengembangan.
 
 Urutan berkas spec disengaja: `05-notify` butuh antrean yang sudah menumpuk dari
 spec sebelumnya, dan `07-lockout` mengunci akun admin 15 menit sehingga wajib
@@ -623,8 +676,103 @@ berarti **"enam atau lebih" — bukan tepat enam**.
 
 Saat menghitung konsumsi, perlakukan setiap `>5` sebagai perkiraan bawah dan
 hubungi tamunya langsung. Seluruh tampilan sudah menghormati arti ini: undangan
-dan notifikasi WhatsApp menulis "lebih dari 5 orang", dan CSV maupun ekspor Sheet
-menulis `>5`, tidak pernah `6`.
+dan notifikasi WhatsApp menulis "lebih dari 5 orang", dan CSV menulis `>5`, tidak
+pernah `6`.
+
+---
+
+## 6b. Mengirim undangan lewat WhatsApp (WAHA)
+
+Selain notifikasi ke mempelai (§6), aplikasi dapat **mengirim undangan ke tamu**
+dan **menerima balasan mereka** lewat [WAHA](https://waha.devlike.pro) dengan engine
+NOWEB. Seluruh pengaturannya ada di tab **WhatsApp** pada dashboard — tidak ada
+environment variable baru yang perlu diisi.
+
+### Menyiapkan
+
+1. Jalankan WAHA dan tautkan sesinya ke nomor WhatsApp mempelai (pindai kode QR).
+   Nomor itulah yang akan tampil sebagai pengirim undangan.
+2. Di tab **WhatsApp**: isi alamat server WAHA (mis. `http://127.0.0.1:3000`), nama
+   sesi, dan kunci API bila WAHA dijalankan dengan `WHATSAPP_API_KEY`.
+3. Tekan **Buat rahasia** untuk menghasilkan rahasia HMAC webhook, lalu salin
+   nilainya ke konfigurasi WAHA. Nilai itu **hanya ditampilkan sekali**.
+4. Di WAHA, arahkan webhook event `message` ke alamat yang tertera di dashboard
+   (`https://undangan.domain.com/api/webhook/waha`), dengan HMAC algoritma `sha512`.
+5. Tekan **Tes koneksi**. Status yang sehat adalah `WORKING`; `SCAN_QR_CODE` berarti
+   WAHA hidup tetapi belum ditautkan ke ponsel.
+
+Tanpa rahasia HMAC tersimpan, **seluruh pesan masuk ditolak**. Itu disengaja: alamat
+webhook dapat diakses siapa pun yang mengetahuinya, dan endpoint itu satu-satunya
+jalur yang dapat menulis RSVP tanpa ada tamu membuka halaman.
+
+### Mengirim undangan
+
+Nomor WhatsApp tamu diisi di tab **Tamu** — satu per satu, atau lewat impor massal
+dengan kolom ketiga berisi nomor. Bentuk apa pun diterima (`0812…`, `+62 812…`,
+`62812…`) dan dirapikan otomatis.
+
+| Cara | Di mana | Perilaku |
+|---|---|---|
+| **Satuan** | Tombol *Kirim undangan* pada baris tamu | Dikirim seketika, hasilnya langsung terlihat |
+| **Terpilih** | Centang beberapa tamu → *Kirim ke N terpilih* | Masuk antrean |
+| **Semua** | *Kirim ke semua yang belum* | Masuk antrean, melewati tamu yang sudah menerima |
+
+Pengiriman massal **tidak pernah beruntun**. Setiap pesan dipisahkan jeda acak
+**20–60 detik** (dapat diubah, minimum 5 detik). Angka itu bukan kehati-hatian
+berlebih: mengirim beruntun ke banyak tujuan adalah pola yang paling cepat memicu
+pemblokiran nomor oleh WhatsApp, dan nomor yang diblokir di tengah penyebaran
+undangan tidak dapat dipulihkan sebelum harinya tiba. Untuk 200 tamu, penyebaran
+karena itu memakan waktu sekitar 2–3 jam — itu wajar, bukan tanda ada yang macet.
+
+Beberapa hal yang sudah ditangani dan tidak perlu dijaga manual:
+
+- **Antrean bertahan melewati restart.** Jadwal "boleh kirim lagi paling cepat
+  pukul sekian" tersimpan di database, bukan di memori proses. Menutup dashboard
+  atau merestart layanan tidak menghentikan maupun mempercepat pengiriman.
+- **Menekan tombol dua kali tidak menggandakan.** Tamu yang sudah ada di antrean
+  dilewati, dan tamu yang sudah menerima undangan tidak ikut dalam *Kirim ke semua*.
+- **Antrean yang menumpuk tidak diberondong.** Bila WAHA sempat mati lalu hidup
+  lagi, sisa antrean tetap dikirim satu per satu dengan jeda yang sama.
+- **Kirim satuan ikut menggeser jadwal**, jadi menekannya berkali-kali tidak
+  menjadi pintu belakang untuk mengirim beruntun.
+
+Progres, pembatalan sisa antrean, dan percobaan ulang yang gagal ada di tab
+**WhatsApp**.
+
+### Menerima balasan tamu
+
+Balasan tamu ditulis ke tabel yang sama dengan formulir web, sehingga rekap di
+dashboard tetap satu — tidak peduli tamu mengisi lewat halaman undangan atau
+membalas pesan.
+
+| Yang dibalas tamu | Yang tercatat |
+|---|---|
+| `HADIR 3` · "insya Allah hadir" | RSVP hadir, 3 orang |
+| `TIDAK HADIR` · "maaf berhalangan" | RSVP tidak hadir |
+| `RAGU` · "belum pasti" | RSVP masih ragu |
+| `UCAPAN <pesan>` · `DOA <pesan>` | Buku ucapan (ikut moderasi bila aktif) |
+| `TRANSFER 500000` · `QRIS` · `TUNAI` | Konfirmasi amplop, berstatus menunggu verifikasi |
+| lainnya | Dibalas petunjuk singkat |
+
+Tiga aturan yang dipegang parser balasan, dan alasannya:
+
+1. **Bentuk penyangkalan diperiksa lebih dulu.** "tidak hadir" mengandung "hadir";
+   urutan yang terbalik akan mencatat ketidakhadiran sebagai kehadiran — kekeliruan
+   termahal yang mungkin terjadi di sini, karena konsumsi disiapkan dari angka itu.
+2. **Kata kunci dicocokkan sebagai kata utuh.** Pencocokan potongan membuat
+   pertanyaan "ini siapa ya?" tercatat sebagai hadir, karena "siapa" memuat "siap".
+3. **Pesan yang ambigu tidak ditebak.** "belum tentu bisa datang" dibalas permintaan
+   penegasan, bukan disimpan sebagai salah satu jawaban.
+
+Pengaman yang berlaku di jalur masuk:
+
+- hanya nomor yang **terdaftar sebagai tamu** yang dapat menulis apa pun;
+- pesan grup diabaikan seluruhnya;
+- setiap pesan hanya diproses sekali (WAHA mengirim ulang webhook yang gagal, dan
+  tanpa ini satu ucapan bisa tercatat berkali-kali);
+- maksimum 20 pesan per nomor per jam;
+- nomor telepon **tidak** ikut tersimpan di tabel RSVP/ucapan/amplop — hanya
+  hash-nya, sama seperti perlakuan terhadap alamat IP pengunjung web (PRD §4.5).
 
 ---
 
@@ -632,6 +780,13 @@ menulis `>5`, tidak pernah `6`.
 
 | Bagian PRD | Keputusan | Alasan |
 |---|---|---|
+| §2.4 / §4.2 Google Sheet sebagai CMS | Seluruh isi undangan diatur dari dashboard admin dan disimpan di SQLite; integrasi Sheets dihapus seluruhnya | Sheet menuntut dua service account, pembagian akses, dan kuota API — tiga hal yang dapat gagal dan semuanya di luar kendali server. Konten kini dibaca dari database yang sudah dipakai RSVP dan ucapan: tidak ada lagi latensi panggilan jaringan pada refresh cache, tidak ada kelas kegagalan "kredensial dicabut", dan perubahan tampil seketika alih-alih menunggu jendela revalidasi. Konsekuensi yang harus disadari: tidak ada lagi salinan konten di luar VPS, sehingga backup harian menjadi satu-satunya pelindung — dan isi undangan kini ikut di dalamnya. |
+| §4.4 | Tambahan `PUT/POST/DELETE /api/admin/content/*` dan `/api/admin/media` | Jalur tulis yang dibutuhkan dashboard untuk menggantikan Sheet. Seluruhnya melewati sesi admin + CSRF, dicatat di `audit_log`, dan membatalkan cache konten. |
+| §4.4 | Tambahan `GET /media/[file]` | Menyajikan gambar undangan yang diunggah admin. Terpisah tegas dari `/api/admin/proof/[file]`: yang ini publik, yang itu rahasia. |
+| §2.4 Non-goals | Pengiriman undangan & penerimaan balasan lewat WhatsApp (§6b) | Diminta setelah PRD disetujui. Yang dilarang PRD adalah push ke tamu tanpa diminta; ini undangan yang memang ditujukan kepada mereka, dikirim atas perintah mempelai, dan balasannya masuk ke tabel yang sudah ada — bukan kanal data baru. |
+| §4.3 | Tambahan tabel `integrations`, `invitation_outbox`, `inbound_messages`, dan kolom `guests.telepon` | Pengaturan WAHA, antrean kirim yang bertahan melewati restart, dan penangkal pemrosesan ganda webhook. |
+| §4.4 | Tambahan `POST /api/webhook/waha` dan `/api/admin/whatsapp/*` | Jalur masuk balasan tamu (dijaga HMAC-SHA512 + daftar tamu terdaftar) dan kendali pengiriman dari dashboard. |
+| §4.3 | Tambahan tabel `site_config`, `schedule`, `gallery`, `bank_accounts`, `guests`, `media` | Isi undangan yang dulu berada di lima tab spreadsheet. |
 | §4.1 Auth admin: NextAuth | Sesi cookie bertanda tangan HMAC buatan sendiri | Untuk satu akun admin, permukaan serangannya jauh lebih kecil. Dua syarat PRD — penguncian 15 menit setelah 5 kali gagal dan proteksi CSRF — tidak disediakan NextAuth secara bawaan dan di sini diterapkan langsung. Properti yang diminta tetap terpenuhi: cookie `httpOnly` + `SameSite=Lax` + Argon2id + CSRF. |
 | §4.3 Tabel `wishes` | Tambahan kolom `deleted_at` | US-15 meminta hapus bersifat *soft delete*; kolom ini yang membuatnya mungkin tanpa kehilangan jejak audit. |
 | §4.3 | Tambahan tabel `login_attempts` | Menyimpan hitungan gagal login untuk penguncian akun (§4.5). |
@@ -649,10 +804,20 @@ menulis `>5`, tidak pernah `6`.
 
 Checklist lengkap ada di Lampiran D PRD. Yang paling sering terlewat:
 
-- [ ] `Config.is_draft` disetel `FALSE` — banner merah "MODE DUMMY" harus hilang.
-- [ ] Seluruh gambar di `public/img/` diganti foto asli (semuanya masih placeholder).
+- [ ] Sakelar **Masih draf** di tab Pengaturan dimatikan — banner merah "MODE DUMMY"
+      harus hilang dari halaman tamu.
+- [ ] Seluruh data contoh bawaan diganti data asli: nama mempelai, jadwal, lokasi,
+      dan nomor rekening. Data seed hanya contoh bentuk, bukan data siapa pun.
+- [ ] Seluruh gambar diganti foto asli — unggah lewat tab Media atau isian gambar di
+      tab Pengaturan; placeholder di `public/img/` tidak layak disebar.
 - [ ] QRIS diuji scan nyata dengan nominal kecil, dan dana masuk ke rekening yang benar.
 - [ ] Backup harian sudah berjalan **dan** sudah diuji restore satu kali.
 - [ ] `.env` serta berkas kredensial dipastikan tidak pernah masuk riwayat git.
 - [ ] Notifikasi WhatsApp diuji sekali sungguhan (isi RSVP dari HP lain, pastikan
       pesan masuk), dan `NOTIFY_RECIPIENTS` berisi nomor yang benar.
+- [ ] Bila memakai pengiriman undangan lewat WAHA (§6b): kirim **satu** undangan ke
+      nomor sendiri lebih dulu dan baca hasilnya di WhatsApp — templat yang salah
+      baru terlihat setelah terkirim, dan pesan yang sudah terkirim tidak dapat
+      ditarik. Balas pesan itu dengan `HADIR 2` untuk memastikan jalur masuknya
+      benar-benar tercatat di dashboard.
+- [ ] Jeda pengiriman massal tidak diturunkan di bawah 20 detik.

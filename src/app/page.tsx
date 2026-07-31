@@ -5,8 +5,8 @@ import { buildInvitationMetadata } from '@/lib/metadata';
 
 /**
  * Undangan umum tanpa slug (US-01): tetap dapat diakses dan memakai sapaan
- * fallback. Halaman di-regenerate setiap `SHEET_CACHE_TTL` detik (ISR), jadi
- * Sheets API tidak pernah dipanggil pada jalur request tamu.
+ * fallback. Halaman di-regenerate setiap `CONTENT_CACHE_TTL` detik (ISR), dan
+ * setiap penyimpanan di dashboard admin langsung membatalkan cache-nya.
  */
 export const revalidate = 60;
 

@@ -59,7 +59,8 @@ MemoryDenyWriteExecute=false
 SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
 
-# Data aplikasi: database, unggahan bukti transfer, backup, snapshot Sheet.
+# Data aplikasi: database (termasuk seluruh isi undangan), unggahan bukti
+# transfer, gambar yang diunggah admin, dan backup.
 # Seluruh path di /etc/walimah/env harus menunjuk ke sini dan bersifat absolut —
 # server.js standalone melakukan process.chdir(__dirname), sehingga path relatif
 # mendarat di /opt/walimah/.next/standalone/data dan gagal dengan EROFS.
@@ -68,7 +69,7 @@ ReadWritePaths=/var/walimah
 # Cache ISR. Next menulis hasil regenerasi halaman ke dalam bundel itu sendiri
 # (serverDistDir/app/... dan .next/cache/fetch-cache), bukan ke direktori data.
 # Tanpa baris ini setiap revalidasi gagal EROFS: /api/revalidate berhenti
-# bekerja dan perubahan di Google Sheet tidak pernah muncul di situs.
+# bekerja dan perubahan yang disimpan di dashboard tidak pernah muncul di situs.
 ReadWritePaths=/opt/walimah/.next/standalone/.next
 
 # Batas memori: VPS 1 GB. Melewati batas akan direstart, bukan membuat OOM

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { stripHtml } from '@/lib/text';
+import { normalizePhone, stripHtml } from '@/lib/text';
 
 /**
  * Satu sumber kebenaran skema untuk klien dan server (PRD §4.1).
@@ -217,6 +217,348 @@ export const envelopeModerationSchema = z.object({
   status: z.enum(['pending', 'verified', 'rejected'], {
     errorMap: () => ({ message: 'Aksi verifikasi tidak dikenal.' }),
   }),
+});
+
+// -----------------------------------------------------------------------------
+// Pengaturan isi undangan (dashboard admin)
+// -----------------------------------------------------------------------------
+
+/**
+ * Isian dashboard divalidasi dengan aturan yang sama ketatnya dengan isian
+ * tamu, meski admin adalah pihak tepercaya.
+ *
+ * Alasannya bukan kecurigaan terhadap admin, melainkan bahwa nilai-nilai ini
+ * masuk ke atribut `src`, tautan, dan metadata halaman yang dilihat semua tamu:
+ * satu URL salah ketik akan tampil sebagai gambar rusak di ratusan perangkat,
+ * dan itu baru ketahuan setelah undangan tersebar.
+ */
+
+/** Teks biasa: markup dibuang, panjang dibatasi. */
+const text = (max: number) =>
+  z.preprocess(cleanText, z.string().max(max, `Isian maksimal ${max} karakter.`).default(''));
+
+/**
+ * Terima URL absolut http(s) maupun path internal seperti `/media/…` (hasil
+ * unggahan). `//host` ditolak: bentuk itu terlihat seperti path internal tapi
+ * sebenarnya menunjuk ke situs lain.
+ */
+function isDisplayableUrl(value: string): boolean {
+  if (value === '') return true;
+  if (value.startsWith('//')) return false;
+  if (value.startsWith('/')) return true;
+  return /^https?:\/\//i.test(value);
+}
+
+const urlField = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim() : value === null ? '' : value),
+  z
+    .string()
+    .max(600, 'URL maksimal 600 karakter.')
+    .default('')
+    .refine(isDisplayableUrl, 'URL harus diawali http://, https://, atau / untuk berkas unggahan.'),
+);
+
+/**
+ * Google Maps memberi potongan `<iframe src="…"></iframe>` lewat tombol Bagikan,
+ * dan itulah yang biasanya ditempel orang. Ambil saja `src`-nya, daripada
+ * menolak tempelan yang niatnya sudah benar.
+ */
+const embedField = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  const match = value.match(/<iframe[^>]*\ssrc=["']([^"']+)["']/i);
+  return (match?.[1] ?? value).trim();
+}, urlField);
+
+const dateField = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim() : value === null ? '' : value),
+  z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Tanggal harus berformat YYYY-MM-DD.').default(''),
+);
+
+const timeField = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim() : value === null ? '' : value),
+  z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$|^$/, 'Jam harus berformat HH:MM.').default(''),
+);
+
+const flag = z.preprocess((value) => {
+  if (typeof value === 'string') return value === 'true' || value === 'on' || value === '1';
+  return value;
+}, z.boolean());
+
+const personSchema = z.object({
+  panggilan: text(40),
+  namaLengkap: text(80),
+  binBinti: text(80),
+  ayah: text(80),
+  ibu: text(80),
+  anakKe: text(30),
+  foto: urlField,
+  instagram: text(60),
+});
+
+export const siteConfigSchema = z.object({
+  isDraft: flag,
+  modeSyari: flag,
+  urutanMempelai: z.enum(['wanita_dulu', 'pria_dulu'], {
+    errorMap: () => ({ message: 'Urutan mempelai tidak dikenal.' }),
+  }),
+
+  pria: personSchema,
+  wanita: personSchema,
+
+  quoteArab: text(600),
+  quoteTerjemahan: text(600),
+  quoteSumber: text(120),
+
+  salamPembuka: text(160),
+  kalimatPembuka: text(800),
+  kalimatPenutup: text(800),
+  doaPenutup: text(800),
+  salamPenutup: text(160),
+
+  venueNama: text(120),
+  venueAlamat: text(300),
+  venueCatatan: text(300),
+  gmapsUrl: urlField,
+  gmapsEmbed: embedField,
+
+  qrisImageUrl: urlField,
+  qrisNamaMerchant: text(120),
+
+  backsoundUrl: urlField,
+
+  rsvpOpen: flag,
+  deadlineRsvp: dateField.transform((value) => (value === '' ? null : value)),
+  moderasiUcapan: flag,
+
+  ogImage: urlField,
+  coverImage: urlField,
+});
+
+export type SiteConfigPayload = z.infer<typeof siteConfigSchema>;
+
+export const ZONE_CODES = ['WIB', 'WITA', 'WIT'] as const;
+
+export const scheduleSchema = z
+  .object({
+    acara: z.preprocess(
+      cleanText,
+      z
+        .string({ required_error: 'Nama acara wajib diisi.' })
+        .min(2, 'Nama acara minimal 2 karakter.')
+        .max(80, 'Nama acara maksimal 80 karakter.'),
+    ),
+    tanggal: z.preprocess(
+      (value) => (typeof value === 'string' ? value.trim() : value),
+      z
+        .string({ required_error: 'Tanggal wajib diisi.' })
+        .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tanggal wajib diisi dengan format YYYY-MM-DD.'),
+    ),
+    jamMulai: timeField,
+    jamSelesai: timeField,
+    zona: z.enum(ZONE_CODES, { errorMap: () => ({ message: 'Zona waktu tidak dikenal.' }) }),
+    lokasi: text(160),
+    catatan: text(300),
+    gmapsUrl: urlField,
+    tampil: flag,
+  })
+  .refine((value) => !value.jamSelesai || !value.jamMulai || value.jamSelesai > value.jamMulai, {
+    // Jam selesai sebelum jam mulai menghasilkan berkas .ics yang ditolak
+    // aplikasi kalender, jadi ditahan di sini alih-alih diam-diam disimpan.
+    message: 'Jam selesai harus setelah jam mulai.',
+    path: ['jamSelesai'],
+  });
+
+export const gallerySchema = z.object({
+  url: urlField.refine((value) => value !== '', 'Alamat gambar wajib diisi.'),
+  caption: text(160),
+  tampil: flag,
+});
+
+export const accountSchema = z.object({
+  bank: z.preprocess(
+    cleanText,
+    z
+      .string({ required_error: 'Nama bank wajib diisi.' })
+      .min(2, 'Nama bank minimal 2 karakter.')
+      .max(60, 'Nama bank maksimal 60 karakter.'),
+  ),
+  nomor: z.preprocess(
+    (value) => (typeof value === 'string' ? value.replace(/[^\d\s-]/g, '').trim() : value),
+    z
+      .string({ required_error: 'Nomor rekening wajib diisi.' })
+      .min(4, 'Nomor rekening minimal 4 digit.')
+      .max(40, 'Nomor rekening maksimal 40 karakter.'),
+  ),
+  atasNama: text(80),
+  tampil: flag,
+});
+
+export const guestSchema = z.object({
+  nama: guestName,
+  /**
+   * Slug boleh dikosongkan: server menurunkannya dari nama. Yang tidak boleh
+   * adalah slug isian bebas — ia menjadi bagian URL yang disebar ke tamu.
+   */
+  slug: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim().toLowerCase() : ''),
+    z
+      .string()
+      .max(80, 'Slug maksimal 80 karakter.')
+      .regex(/^[a-z0-9-]*$/, 'Slug hanya boleh huruf kecil, angka, dan tanda hubung.')
+      .default(''),
+  ),
+  kategori: text(40),
+  /**
+   * Nomor WhatsApp, dinormalkan saat divalidasi supaya bentuk apa pun yang
+   * ditempel admin tersimpan sebagai satu format yang sama.
+   */
+  telepon: z.preprocess(
+    (value) => (typeof value === 'string' ? normalizePhone(value) : ''),
+    z
+      .string()
+      .max(20, 'Nomor telepon terlalu panjang.')
+      .regex(/^\d*$/, 'Nomor telepon hanya boleh berisi angka.')
+      .default('')
+      .refine(
+        (value) => value === '' || value.length >= 9,
+        'Nomor telepon terlalu pendek — tulis lengkap dengan kode area, mis. 0812…',
+      ),
+  ),
+});
+
+/**
+ * Impor massal tamu dari tempelan Excel/CSV.
+ *
+ * Inilah pengganti kenyamanan utama spreadsheet: menempel ratusan nama sekaligus
+ * alih-alih mengisi satu per satu. Pemisah kolom boleh koma, titik koma, atau
+ * TAB — TAB-lah yang dihasilkan saat menyalin langsung dari Excel.
+ *
+ * Urutan kolom: nama, kategori, nomor WhatsApp.
+ */
+export const guestImportSchema = z.object({
+  text: z
+    .string({ required_error: 'Tempelkan minimal satu nama.' })
+    .min(1, 'Tempelkan minimal satu nama.')
+    .max(200_000, 'Data terlalu besar. Bagi menjadi beberapa kali impor.'),
+});
+
+export type ParsedGuestLine = { nama: string; slug: string; kategori: string; telepon: string };
+
+/**
+ * Pecah tempelan menjadi daftar tamu. Baris kosong dilewati, baris header
+ * ("nama", "nama,kategori") dikenali dan dibuang.
+ */
+export function parseGuestImport(input: string): ParsedGuestLine[] {
+  const entries: ParsedGuestLine[] = [];
+
+  for (const rawLine of input.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const cells = line.split(/\t|;|,/).map((cell) => cell.trim());
+    const nama = stripHtml(cells[0] ?? '').slice(0, 60);
+    if (!nama) continue;
+
+    // Baris judul dari spreadsheet tidak boleh ikut jadi tamu bernama "Nama".
+    if (entries.length === 0 && /^(nama|name)$/i.test(nama)) continue;
+
+    entries.push({
+      nama,
+      slug: '',
+      kategori: stripHtml(cells[1] ?? '').slice(0, 40),
+      telepon: normalizePhone(cells[2] ?? ''),
+    });
+  }
+
+  return entries;
+}
+
+// -----------------------------------------------------------------------------
+// Integrasi WhatsApp (WAHA)
+// -----------------------------------------------------------------------------
+
+/** Batas bawah jeda antar-pengiriman massal; lihat catatan di waha/settings.ts. */
+export const MIN_BROADCAST_DELAY = 5;
+
+export const wahaSettingsSchema = z
+  .object({
+    enabled: flag,
+    baseUrl: z.preprocess(
+      (value) => (typeof value === 'string' ? value.trim().replace(/\/+$/, '') : ''),
+      z
+        .string()
+        .max(300, 'Alamat server maksimal 300 karakter.')
+        .default('')
+        .refine(
+          (value) => value === '' || /^https?:\/\/\S+$/i.test(value),
+          'Alamat server WAHA harus diawali http:// atau https://.',
+        ),
+    ),
+    session: z.preprocess(
+      (value) => (typeof value === 'string' ? value.trim() : ''),
+      z
+        .string()
+        .max(60, 'Nama sesi maksimal 60 karakter.')
+        .regex(/^[A-Za-z0-9._-]*$/, 'Nama sesi hanya boleh huruf, angka, titik, dan tanda hubung.')
+        .default(''),
+    ),
+    /**
+     * Rahasia yang dikosongkan berarti "biarkan seperti sebelumnya", bukan
+     * "hapus". Dashboard tidak pernah menerima nilainya kembali dari server,
+     * jadi menyimpan form apa adanya tidak boleh menghapus kunci yang sudah ada.
+     */
+    apiKey: z.preprocess(
+      (value) => (typeof value === 'string' ? value.trim() : ''),
+      z.string().max(300).default(''),
+    ),
+    webhookSecret: z.preprocess(
+      (value) => (typeof value === 'string' ? value.trim() : ''),
+      z.string().max(300).default(''),
+    ),
+    invitationTemplate: z.preprocess(
+      (value) => (typeof value === 'string' ? value : ''),
+      z
+        .string()
+        .max(4000, 'Templat pesan maksimal 4000 karakter.')
+        .default('')
+        .refine(
+          (value) => value.trim() !== '',
+          'Templat pesan undangan tidak boleh kosong.',
+        ),
+    ),
+    autoReply: flag,
+    acceptReplies: flag,
+    minDelaySeconds: z.coerce
+      .number()
+      .int('Jeda harus bilangan bulat.')
+      .min(MIN_BROADCAST_DELAY, `Jeda minimal ${MIN_BROADCAST_DELAY} detik.`)
+      .max(3600, 'Jeda maksimal 3600 detik.'),
+    maxDelaySeconds: z.coerce
+      .number()
+      .int('Jeda harus bilangan bulat.')
+      .min(MIN_BROADCAST_DELAY, `Jeda minimal ${MIN_BROADCAST_DELAY} detik.`)
+      .max(3600, 'Jeda maksimal 3600 detik.'),
+  })
+  .refine((value) => value.maxDelaySeconds >= value.minDelaySeconds, {
+    // Rentang terbalik menghasilkan jeda yang tidak pernah acak, dan itu
+    // menghapus seluruh gunanya.
+    message: 'Jeda maksimum tidak boleh lebih kecil daripada jeda minimum.',
+    path: ['maxDelaySeconds'],
+  });
+
+export const sendInvitationSchema = z.object({
+  guestId: z.coerce.number().int().positive('Tamu tidak dikenal.'),
+});
+
+export const broadcastSchema = z.object({
+  /** Kosong berarti seluruh tamu yang punya nomor dan belum pernah terkirim. */
+  guestIds: z.array(z.number().int().positive()).max(2000).optional().default([]),
+  /** True untuk mengirim ulang ke tamu yang undangannya sudah pernah terkirim. */
+  includeSent: z.boolean().optional().default(false),
+});
+
+export const reorderSchema = z.object({
+  ids: z.array(z.number().int().positive()).max(500, 'Terlalu banyak item untuk diurutkan.'),
 });
 
 // -----------------------------------------------------------------------------

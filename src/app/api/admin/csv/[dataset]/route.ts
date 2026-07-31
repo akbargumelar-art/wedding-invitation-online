@@ -1,5 +1,12 @@
 import { apiError, internalError, requireAdmin } from '@/lib/api';
-import { buildEnvelopeRows, buildRsvpRows, buildWishRows, toCsv } from '@/lib/export';
+import {
+  buildEnvelopeRows,
+  buildGuestRows,
+  buildRsvpRows,
+  buildWishRows,
+  toCsv,
+} from '@/lib/export';
+import { env } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -8,6 +15,7 @@ const BUILDERS = {
   rsvp: buildRsvpRows,
   ucapan: buildWishRows,
   amplop: buildEnvelopeRows,
+  tamu: () => buildGuestRows(env.siteUrl),
 } as const;
 
 type Dataset = keyof typeof BUILDERS;

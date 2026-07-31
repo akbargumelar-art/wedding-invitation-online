@@ -4,8 +4,8 @@
  *   npm run purge -- --dry-run     lihat apa yang akan dihapus
  *   npm run purge -- --confirm     jalankan penghapusan
  *
- * Salinan final data tetap ada di Google Sheet pribadi mempelai; yang dihapus
- * di sini adalah salinan di server.
+ * Unduh CSV dari dashboard lebih dulu bila salinan datanya masih dibutuhkan:
+ * penghapusan di sini permanen dan tidak dapat dibatalkan.
  */
 // Memuat .env untuk skrip CLI. Harus berada di atas impor lain yang membaca
 // env, karena impor ESM dievaluasi sesuai urutan penulisan.

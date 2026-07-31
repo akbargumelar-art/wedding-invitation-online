@@ -14,7 +14,7 @@ import type { Guest } from '@/lib/content/types';
  */
 export const revalidate = 60;
 
-/** Pra-render seluruh tamu yang sudah terdaftar di Sheet saat build. */
+/** Pra-render seluruh tamu yang sudah terdaftar saat build. */
 export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
   const { guests } = await getContent();
   return guests.map((guest) => ({ slug: guest.slug }));
@@ -30,8 +30,8 @@ async function resolveGuest(slugPromise: PageProps['params']): Promise<Guest | n
   const guest = await findGuestBySlug(decodeURIComponent(slug));
   if (!guest) return null;
 
-  // Nama tetap dibersihkan dan dipotong meski sumbernya Sheet milik sendiri —
-  // Sheet dapat diedit banyak orang dan tidak boleh dipercaya buta.
+  // Nama tetap dibersihkan dan dipotong meski sumbernya daftar tamu sendiri:
+  // isian dashboard tidak boleh dipercaya buta hanya karena berasal dari admin.
   return { ...guest, nama: sanitizeGuestName(guest.nama) };
 }
 

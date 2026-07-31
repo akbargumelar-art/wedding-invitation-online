@@ -48,13 +48,9 @@ if [[ "$(uname -s)" != "Linux" || -n "$FOREIGN_BINARIES" ]]; then
 fi
 
 echo "==> Menyiapkan paket standalone"
-# Next tidak menyalin dua folder ini ke standalone secara otomatis.
-rm -rf .next/standalone/.next/static .next/standalone/public
-cp -r .next/static .next/standalone/.next/static
-cp -r public .next/standalone/public
-# Data seed dibaca saat runtime bila snapshot belum terbentuk.
-mkdir -p .next/standalone/data
-cp data/seed.json .next/standalone/data/seed.json
+# Langkah penyalinannya ada di satu skrip agar identik dengan yang dipakai
+# harness E2E — paket yang diuji dan paket yang dikirim tidak boleh berbeda.
+node scripts/pack-standalone.mjs
 
 echo "==> Mengirim ke ${TARGET}:${REMOTE_DIR}"
 rsync -az --delete \
@@ -64,5 +60,16 @@ rsync -az --delete \
 echo "==> Memperbaiki kepemilikan dan merestart layanan"
 # shellcheck disable=SC2029
 ssh "$TARGET" "sudo chown -R walimah:walimah ${REMOTE_DIR} && sudo systemctl restart walimah && sleep 3 && sudo systemctl is-active walimah"
+
+# Buang cache konten bawaan build.
+#
+# Bundel ini dibangun di mesin pengembang, dan `next build` ikut menyimpan hasil
+# pembacaan isi undangan dari database LOKAL ke .next/cache. Tanpa langkah ini,
+# tamu dapat melihat isi undangan milik mesin pengembang selama beberapa menit
+# pertama setelah deploy.
+echo "==> Menyegarkan konten"
+# shellcheck disable=SC2029
+ssh "$TARGET" "set -a; . /etc/walimah/env; set +a; curl -fs -m 10 -o /dev/null -X POST -H \"Authorization: Bearer \${REVALIDATE_SECRET}\" http://127.0.0.1:\${PORT}/api/revalidate" \
+  || echo "    Revalidasi gagal; isi undangan menyusul dalam beberapa menit." >&2
 
 echo "==> Selesai. Pantau log dengan: ssh ${TARGET} 'journalctl -u walimah -f'"

@@ -15,7 +15,18 @@ export async function register(): Promise<void> {
 
   logger.info('app.boot', {
     siteUrl: env.siteUrl,
-    sheetsConfigured: Boolean(env.sheets.id),
     dbPath: env.db.path,
   });
+
+  // Pencacah antrean undangan TIDAK dinyalakan dari sini.
+  //
+  // Berkas instrumentasi dikompilasi sebagai bundel tersendiri. Mengimpor modul
+  // aplikasi ke dalamnya menggandakan modul yang sama di dua graf webpack, dan
+  // akibatnya baru muncul jauh dari sini: setiap halaman yang perlu dirender
+  // atas permintaan gagal dengan `TypeError: a[d] is not a function` dari
+  // webpack-runtime, sementara halaman yang sudah dipra-render tetap tersaji
+  // seolah tidak ada yang salah.
+  //
+  // Pencacahnya dinyalakan dari dalam graf aplikasi sendiri — lihat
+  // `ensureOutboxWorker()` di src/lib/waha/worker.ts.
 }

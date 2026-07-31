@@ -17,7 +17,7 @@ function escapeIcs(value: string): string {
     .replace(/\r?\n/g, '\\n');
 }
 
-/** Default durasi 2 jam bila jam selesai tidak diisi di Sheet. */
+/** Default durasi 2 jam bila jam selesai tidak diisi. */
 const DEFAULT_DURATION_MS = 2 * 3600 * 1000;
 
 export function buildIcs(event: CalendarEvent): string {

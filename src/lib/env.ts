@@ -65,14 +65,16 @@ export const env = {
   isProduction: process.env.NODE_ENV === 'production',
   siteUrl: str('NEXT_PUBLIC_SITE_URL', 'http://localhost:3000').replace(/\/$/, ''),
 
-  sheets: {
-    id: str('GOOGLE_SHEET_ID'),
-    credentialsPath: str('GOOGLE_CREDENTIALS_PATH'),
-    credentialsJson: str('GOOGLE_CREDENTIALS_JSON'),
-    writeCredentialsPath: str('GOOGLE_WRITE_CREDENTIALS_PATH'),
-    writeCredentialsJson: str('GOOGLE_WRITE_CREDENTIALS_JSON'),
-    cacheTtl: int('SHEET_CACHE_TTL', 60),
-    snapshotPath: resolvePath(str('SHEET_SNAPSHOT_PATH', './data/snapshot.json')),
+  content: {
+    /**
+     * Umur cache halaman undangan.
+     *
+     * Boleh panjang: isi undangan dibaca dari SQLite lokal, dan setiap
+     * penyimpanan di dashboard admin langsung membatalkan cache lewat
+     * `revalidateTag`. Nilai ini karena itu hanya menjadi batas atas bila ada
+     * perubahan yang entah bagaimana lolos dari jalur itu.
+     */
+    cacheTtl: int('CONTENT_CACHE_TTL', 300),
   },
 
   db: {
@@ -80,7 +82,10 @@ export const env = {
   },
 
   uploads: {
+    /** Bukti transfer — privat, hanya dapat dibaca lewat route admin. */
     dir: resolvePath(str('UPLOAD_DIR', './data/uploads')),
+    /** Gambar isi undangan — publik, disajikan lewat /media/<berkas>. */
+    mediaDir: resolvePath(str('MEDIA_DIR', './data/media')),
     maxBytes: int('MAX_UPLOAD_BYTES', 2_097_152),
   },
 

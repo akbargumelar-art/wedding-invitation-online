@@ -1,18 +1,18 @@
 import 'server-only';
 
-import { replaceSheetTab, isSheetsWriteConfigured } from '@/lib/content/sheets';
 import { listRsvp } from '@/lib/db/rsvp';
 import { listAllWishes } from '@/lib/db/wishes';
 import { listEnvelopes } from '@/lib/db/envelope';
+import { listGuests } from '@/lib/db/content';
 import { formatRupiah } from '@/lib/text';
 import { PAX_OVER } from '@/lib/validation';
-import { logger } from '@/lib/logger';
 
 /**
- * Ekspor data transaksional kembali ke Google Sheet (US-16).
+ * Ekspor data transaksional ke berkas CSV yang diunduh dari dashboard (US-15).
  *
- * Idempoten: setiap tab Export ditulis ulang seluruhnya, bukan ditambahkan,
- * sehingga menjalankan cron dua kali tidak pernah menghasilkan duplikat.
+ * Sejak seluruh pengelolaan pindah ke dashboard, ekspor otomatis ke Google
+ * Sheet dihapus: CSV di sini yang menjadi jalur resmi memindahkan data ke
+ * Excel atau spreadsheet apa pun bila mempelai membutuhkannya.
  */
 
 const STATUS_LABELS: Record<string, string> = {
@@ -97,36 +97,22 @@ export function buildEnvelopeRows(): string[][] {
   ];
 }
 
-export type ExportResult = {
-  ok: boolean;
-  written: Record<string, number>;
-  skippedReason?: string;
-};
+/** Daftar tamu beserta link undangannya — dasar penyebaran undangan. */
+export function buildGuestRows(siteUrl: string): string[][] {
+  const header = ['Nama', 'Slug', 'Kategori', 'Nomor WhatsApp', 'Link Undangan'];
 
-export async function exportToSheet(): Promise<ExportResult> {
-  if (!isSheetsWriteConfigured()) {
-    const skippedReason =
-      'Kredensial tulis Google Sheets belum dikonfigurasi (GOOGLE_WRITE_CREDENTIALS_*).';
-    logger.warn('export.skipped', { reason: skippedReason });
-    return { ok: false, written: {}, skippedReason };
-  }
-
-  const tabs: Array<[string, string[][]]> = [
-    ['Export_RSVP', buildRsvpRows()],
-    ['Export_Ucapan', buildWishRows()],
-    ['Export_Amplop', buildEnvelopeRows()],
+  return [
+    header,
+    ...listGuests().map((row) => [
+      row.nama,
+      row.slug,
+      row.kategori,
+      // Diawali tanda plus supaya Excel tidak memperlakukannya sebagai angka
+      // lalu membuang nol di depan atau mengubahnya jadi notasi ilmiah.
+      row.telepon ? `+${row.telepon}` : '',
+      `${siteUrl}/to/${row.slug}`,
+    ]),
   ];
-
-  const written: Record<string, number> = {};
-
-  for (const [tabName, rows] of tabs) {
-    await replaceSheetTab(tabName, rows);
-    // Header tidak dihitung sebagai baris data.
-    written[tabName] = Math.max(0, rows.length - 1);
-  }
-
-  logger.info('export.completed', { written });
-  return { ok: true, written };
 }
 
 /** Serialisasi CSV dengan escaping RFC 4180 untuk tombol "Unduh CSV" (US-15). */

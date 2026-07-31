@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { applySheetOverride, GALLERY_ROWS, openInvitation, resetConfig } from './helpers';
+import { GALLERY_ROWS, openInvitation, resetConfig, setGalleryRows } from './helpers';
 
 /** Skenario 1-4 dan 7 (bagian UI) pada Lampiran C. */
 
 test.describe('Undangan tamu', () => {
   // Kembalikan konten ke data seed sebelum apa pun dijalankan. Tanpa ini, suite
-  // yang pernah terhenti di tengah bisa meninggalkan snapshot hasil pengujian
+  // yang pernah terhenti di tengah bisa meninggalkan sisa pengujian
   // 04-content (mis. is_draft = FALSE) dan menjatuhkan berkas ini.
   test.beforeAll(async ({ request }) => {
     await resetConfig(request);
@@ -46,7 +46,7 @@ test.describe('Undangan tamu', () => {
     await expect(page.getByRole('heading', { name: 'Kedua Mempelai' })).toBeVisible();
   });
 
-  test('konten islami, jadwal, dan lokasi tampil dari data Sheet', async ({ page }) => {
+  test('konten islami, jadwal, dan lokasi tampil dari isi undangan', async ({ page }) => {
     await page.goto('/to/budi-santoso');
     await openInvitation(page);
 
@@ -144,16 +144,18 @@ test.describe('Undangan tamu', () => {
     await page.getByRole('button', { name: /Salin nomor rekening Bank Syariah/ }).click();
     await expect(page.getByText('Tersalin').first()).toBeVisible();
 
+    // Penegasan bahwa hadiah tidak diwajibkan tetap tampil bersama nomor
+    // rekening — kalimat inilah yang menjaga bagian ini tidak terbaca menagih.
     await expect(
-      page.getByText('Kehadiran dan doa Anda sudah lebih dari cukup bagi kami.'),
+      page.getByText(/Kehadiran dan doa restu .* adalah hadiah paling berharga/),
     ).toBeVisible();
   });
 
   test('galeri membuka lightbox dan dapat ditutup', async ({ page, request }) => {
     // Undangan yang dikirim tidak memuat galeri, jadi tesnya menyemai fotonya
     // sendiri — fiturnya masih ikut terkirim dan harus tetap terbukti bekerja
-    // bila mempelai menambah foto di Sheet.
-    await applySheetOverride(request, { galeri: GALLERY_ROWS });
+    // bila mempelai menambah foto lewat dashboard.
+    await setGalleryRows(request, GALLERY_ROWS);
 
     await page.goto('/to/budi-santoso');
     await openInvitation(page);

@@ -73,7 +73,7 @@ fi
 
 install -d -m 755 /etc/walimah
 install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 750 \
-  "$DATA_ROOT" "$DATA_ROOT/data" "$DATA_ROOT/uploads" "$DATA_ROOT/backups"
+  "$DATA_ROOT" "$DATA_ROOT/data" "$DATA_ROOT/uploads" "$DATA_ROOT/backups" "$DATA_ROOT/media"
 
 # -----------------------------------------------------------------------------
 # 3. Berkas rahasia
@@ -149,15 +149,10 @@ NEXT_PUBLIC_SITE_URL="$(sed -n 's/^NEXT_PUBLIC_SITE_URL=\(.*\)$/\1/p' "$ENV_FILE
 NODE_ENV=production \
   npm run build
 
-# Next tidak menyalin dua folder ini ke standalone secara otomatis.
+# Next tidak menyalin .next/static, public/, dan data/seed.json ke standalone
+# secara otomatis. Skripnya sama dengan yang dipakai deploy.sh dan harness E2E.
 say "Menyusun paket standalone"
-rm -rf .next/standalone/.next/static .next/standalone/public
-cp -r .next/static .next/standalone/.next/static
-cp -r public .next/standalone/public
-# Data seed dibaca saat runtime sebagai lapis fallback terakhir bila snapshot
-# Sheet belum terbentuk (src/lib/content/snapshot.ts).
-mkdir -p .next/standalone/data
-cp data/seed.json .next/standalone/data/seed.json
+node scripts/pack-standalone.mjs
 
 # Hanya .next yang berpindah kepemilikan, bukan seluruh repo. Layanan cuma
 # perlu membaca bundel standalone dan menulis cache ISR di dalamnya; sisanya
@@ -278,6 +273,22 @@ say "Memeriksa kesehatan di 127.0.0.1:${PORT}"
 # dilaporkan sekali di bawah, setelah seluruh percobaan habis.
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
   if curl -fs -m 5 -o /dev/null "http://127.0.0.1:${PORT}/"; then
+    # Buang cache konten bawaan build.
+    #
+    # `next build` ikut menyimpan hasil pembacaan isi undangan ke .next/cache,
+    # dan pembacaan itu terjadi di direktori repo — bukan di database produksi
+    # yang baru dibaca saat layanan berjalan. Tanpa langkah ini, halaman tamu
+    # dapat menyajikan isi bawaan repo selama beberapa menit pertama setelah
+    # deploy, tepat pada saat orang memeriksa hasil pemasangannya.
+    # shellcheck disable=SC1090
+    REVALIDATE_SECRET="$(. "$ENV_FILE" >/dev/null 2>&1; printf '%s' "${REVALIDATE_SECRET:-}")"
+    if [[ -n $REVALIDATE_SECRET ]]; then
+      curl -fs -m 10 -o /dev/null -X POST \
+        -H "Authorization: Bearer ${REVALIDATE_SECRET}" \
+        "http://127.0.0.1:${PORT}/api/revalidate" \
+        || warn "Revalidasi awal gagal; isi undangan menyusul dalam beberapa menit."
+    fi
+
     echo
     say "Selesai. Walimah aktif di porta ${PORT}."
     echo "    Porta tersimpan di ${ENV_FILE} (PORT) dan ${PORT_FILE} (WALIMAH_PORT)."

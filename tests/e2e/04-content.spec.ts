@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   applyConfigOverride,
-  applySheetOverride,
+  applyContentOverride,
   CRON_SECRET,
   GALLERY_ROWS,
   openInvitation,
@@ -11,10 +11,10 @@ import {
 /**
  * Skenario 9, 10, dan 12 pada Lampiran C.
  *
- * Server E2E berjalan tanpa kredensial Google Sheets, sehingga seluruh konten
- * datang dari snapshot — yaitu jalur fallback yang sama persis dengan kondisi
- * "izin service account dicabut". Mengedit snapshot lalu memaksa revalidasi
- * setara dengan mengedit Sheet.
+ * Isi undangan berasal dari SQLite, yang disemai dari `data/seed.json` saat
+ * database masih kosong — persis jalur yang dilalui pemasangan baru di VPS.
+ * Menulis ke tabelnya lalu memaksa revalidasi setara dengan menyimpan
+ * perubahan lewat dashboard admin.
  */
 
 test.describe.configure({ mode: 'serial' });
@@ -23,7 +23,7 @@ test.afterAll(async ({ request }) => {
   await resetConfig(request);
 });
 
-test('10. halaman tetap tampil normal tanpa kredensial Sheets', async ({ page }) => {
+test('10. halaman tampil normal pada database yang disemai dari berkas seed', async ({ page }) => {
   const response = await page.goto('/to/budi-santoso');
 
   expect(response?.status()).toBe(200);
@@ -49,9 +49,9 @@ test('8. mode syar\'i menyembunyikan foto dan galeri tanpa merusak layout', asyn
   // Galeri disemai lebih dulu. Konten yang dikirim ke tamu tidak punya foto
   // galeri, jadi tanpa ini pengujian "galeri disembunyikan" akan lulus tanpa
   // membuktikan apa pun.
-  await applySheetOverride(request, {
+  await applyContentOverride(request, {
     config: { mode_syari: 'TRUE', wanita_foto: '/img/dummy-wanita.png' },
-    galeri: GALLERY_ROWS,
+    gallery: GALLERY_ROWS,
   });
 
   await page.goto('/to/budi-santoso');
@@ -102,12 +102,4 @@ test('cron backup menghasilkan berkas salinan database', async ({ request }) => 
   expect(body.ok).toBe(true);
   expect(body.backup.file).toMatch(/^walimah-.*\.db$/);
   expect(body.backup.bytes).toBeGreaterThan(0);
-});
-
-test('cron export melaporkan status tanpa kredensial tulis', async ({ request }) => {
-  const response = await request.post('/api/cron/export', { data: { secret: CRON_SECRET } });
-
-  // 202 = dilewati dengan alasan jelas, bukan galat server.
-  expect(response.status()).toBe(202);
-  expect((await response.json()).skippedReason).toContain('Kredensial tulis');
 });

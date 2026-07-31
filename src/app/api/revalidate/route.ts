@@ -10,11 +10,12 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * POST /api/revalidate — paksa muat ulang konten dari Google Sheet.
+ * POST /api/revalidate — paksa muat ulang isi undangan dari database.
  *
- * Normalnya konten disegarkan otomatis tiap `SHEET_CACHE_TTL` detik. Endpoint
- * ini untuk saat admin butuh perubahan tampil seketika (mis. jam acara berubah
- * mendadak) tanpa menunggu jendela revalidasi.
+ * Dashboard admin sudah memanggil revalidasi sendiri setiap kali menyimpan,
+ * jadi endpoint ini bukan jalur normal. Ia disediakan untuk perubahan yang
+ * dilakukan di luar dashboard — mis. skrip pemulihan yang menulis langsung ke
+ * database — dan untuk pemakaian oleh pengujian.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   try {

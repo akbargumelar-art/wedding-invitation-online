@@ -4,6 +4,7 @@ import path from 'node:path';
 import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
 import { SCHEMA_SQL } from './schema';
+import { applyMigrations } from './migrations';
 
 export type DB = Database.Database;
 
@@ -32,6 +33,9 @@ function createConnection(): DB {
   db.pragma('busy_timeout = 5000');
 
   db.exec(SCHEMA_SQL);
+  // Kolom yang ditambahkan setelah sebuah tabel dipakai di produksi; lihat
+  // catatan di migrations.ts kenapa ini tidak bisa ikut SCHEMA_SQL.
+  applyMigrations(db);
 
   logger.info('db.ready', { path: env.db.path });
   return db;

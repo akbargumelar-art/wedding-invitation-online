@@ -7,7 +7,7 @@ export type PersonConfig = {
   ayah: string;
   ibu: string;
   /**
-   * Urutan kelahiran apa adanya dari Sheet, mis. "ketiga" atau "pertama".
+   * Urutan kelahiran apa adanya dari isian admin, mis. "ketiga" atau "pertama".
    * Kosong = kalimatnya jatuh ke "Putra/Putri dari" tanpa urutan.
    */
   anakKe: string;
@@ -91,7 +91,7 @@ export type Guest = {
 };
 
 /** Dari mana isi halaman berasal — dipakai untuk logging & banner diagnostik. */
-export type ContentSource = 'sheets' | 'snapshot' | 'seed';
+export type ContentSource = 'db' | 'seed';
 
 export type Content = {
   config: SiteConfig;
@@ -105,8 +105,27 @@ export type Content = {
   warnings: string[];
 };
 
-/** Bentuk mentah hasil pembacaan Sheet, sebelum diparsing. Ini yang di-snapshot. */
-export type RawSheetData = {
+/**
+ * Bentuk mentah isi undangan sebelum divalidasi parser: satu peta kunci/nilai
+ * untuk Config, dan daftar record berkunci nama kolom untuk sisanya.
+ *
+ * Inilah yang dihasilkan lapisan database. Nama kuncinya sengaja sama persis
+ * dengan nama kolom tabel, sehingga baris SQLite bisa langsung masuk parser
+ * tanpa lapisan pemetaan tambahan.
+ */
+export type ContentRecords = {
+  config: Record<string, string>;
+  jadwal: Record<string, string>[];
+  galeri: Record<string, string>[];
+  rekening: Record<string, string>[];
+  tamu: Record<string, string>[];
+};
+
+/**
+ * Isi berkas `data/seed.json`: matriks baris dengan baris pertama sebagai
+ * header. Hanya dipakai sekali, saat mengisi database yang masih kosong.
+ */
+export type RawContentMatrix = {
   config: string[][];
   jadwal: string[][];
   galeri: string[][];

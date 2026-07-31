@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { ADMIN_USERNAME, loginAsAdmin, openInvitation } from './helpers';
+import {
+  ADMIN_USERNAME,
+  loginAsAdmin,
+  openAdminTab,
+  openInvitation,
+  resetConfig,
+} from './helpers';
 
 /** Skenario 5 dan 11 pada Lampiran C. */
 
@@ -51,6 +57,7 @@ test.describe('Dashboard admin', () => {
 
   test('7. konfirmasi amplop tampil berstatus menunggu', async ({ page }) => {
     await loginAsAdmin(page);
+    await openAdminTab(page, 'Amplop');
 
     const amplop = page.getByRole('region', { name: 'Verifikasi amplop' });
     await expect(amplop.getByText('Dr. Rahmat Hidayat')).toBeVisible();
@@ -64,6 +71,7 @@ test.describe('Dashboard admin', () => {
     expect((await before.json()).total).toBe(0);
 
     await loginAsAdmin(page);
+    await openAdminTab(page, 'Ucapan');
 
     const ucapan = page.getByRole('region', { name: 'Moderasi ucapan' });
     const kartu = ucapan.getByRole('listitem').filter({ hasText: 'Keluarga Bapak Hasan' });
@@ -77,6 +85,45 @@ test.describe('Dashboard admin', () => {
     const body = await after.json();
     expect(body.total).toBe(1);
     expect(body.items[0].name).toBe('Keluarga Bapak Hasan');
+  });
+
+  /**
+   * Inti dari perpindahan lepas dari spreadsheet: satu suntingan di dashboard
+   * harus sampai ke tamu tanpa langkah lain — tanpa sinkronisasi, tanpa menunggu
+   * TTL cache habis.
+   */
+  test('pengaturan yang disimpan admin langsung tampil ke tamu', async ({ page, request }) => {
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'Pengaturan');
+
+    await page.getByLabel('Nama tempat').fill('Gedung Serbaguna Melati');
+    await page.getByRole('button', { name: 'Simpan pengaturan' }).first().click();
+    await expect(page.getByText('Pengaturan tersimpan')).toBeVisible();
+
+    await page.goto('/to/budi-santoso');
+    await openInvitation(page);
+    await page.locator('#lokasi').scrollIntoViewIfNeeded();
+
+    await expect(page.getByRole('heading', { name: 'Gedung Serbaguna Melati' })).toBeVisible();
+
+    // Kembalikan ke data seed agar berkas uji berikutnya berangkat dari keadaan
+    // yang sama seperti bila berkas ini tidak pernah dijalankan.
+    await resetConfig(request);
+  });
+
+  test('tamu baru dapat ditambahkan dan langsung punya halaman sendiri', async ({ page }) => {
+    await loginAsAdmin(page);
+    await openAdminTab(page, 'Tamu');
+
+    await page.getByRole('button', { name: 'Tambah tamu' }).click();
+    await page.getByLabel('Nama tamu').fill('Keluarga Bapak Sutrisno');
+    await page.getByRole('button', { name: 'Tambah tamu' }).last().click();
+
+    await expect(page.getByText('Tamu ditambahkan.')).toBeVisible();
+
+    // Slug diturunkan otomatis dari nama, jadi link-nya dapat ditebak di sini.
+    await page.goto('/to/keluarga-bapak-sutrisno');
+    await expect(page.getByText('Keluarga Bapak Sutrisno').first()).toBeVisible();
   });
 
   test('ucapan yang disetujui terlihat oleh tamu di halaman undangan', async ({ page }) => {

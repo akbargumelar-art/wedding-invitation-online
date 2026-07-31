@@ -20,8 +20,11 @@ SHELL=/bin/bash
 # Backup harian 02:00 WIB — VACUUM INTO + retensi 14 versi + hapus bukti kedaluwarsa.
 0 2 * * * . /etc/walimah/env && curl -fsS -m 120 -X POST http://127.0.0.1:${PORT}/api/cron/backup -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
 
-# Sinkronisasi ke tab Export di Google Sheet setiap 6 jam (idempoten).
-0 */6 * * * . /etc/walimah/env && curl -fsS -m 120 -X POST http://127.0.0.1:${PORT}/api/cron/export -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
+# Jaring pengaman antrean undangan WhatsApp, setiap menit.
+# Pengiriman normal digerakkan pencacah di dalam proses (jedanya puluhan detik,
+# terlalu rapat untuk cron); baris ini hanya melanjutkan antrean yang tertinggal
+# setelah layanan direstart dan tidak ada yang membuka dashboard.
+* * * * * . /etc/walimah/env && curl -fsS -m 30 -X POST http://127.0.0.1:${PORT}/api/cron/invitations -H "Authorization: Bearer ${CRON_SECRET}" >> /var/log/walimah-cron.log 2>&1
 
 # Kirim ulang notifikasi WhatsApp yang gagal, setiap 10 menit.
 # Pengiriman normal terjadi langsung setelah tamu mengirim; ini jaring pengaman

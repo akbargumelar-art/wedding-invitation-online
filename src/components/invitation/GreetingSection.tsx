@@ -6,7 +6,7 @@ import type { SiteConfig } from '@/lib/content/types';
 /**
  * Salam pembuka + kutipan ayat (US-03).
  *
- * Seluruh teks — termasuk ayat, terjemahan, dan sumbernya — berasal dari Sheet.
+ * Seluruh teks — termasuk ayat, terjemahan, dan sumbernya — berasal dari Pengaturan.
  * Tidak ada satu pun yang di-hardcode, agar mempelai bebas memilih.
  */
 export function GreetingSection({ config }: { config: SiteConfig }) {

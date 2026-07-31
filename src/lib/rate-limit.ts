@@ -24,12 +24,15 @@ export const RATE_LIMITS = {
   envelope: { key: 'envelope', limit: 3, windowSeconds: 600 },
   track: { key: 'track', limit: 30, windowSeconds: 60 },
   revalidate: { key: 'revalidate', limit: 20, windowSeconds: 3600 },
-  adminExport: { key: 'admin-export', limit: 6, windowSeconds: 3600 },
   // Pengaman kasar terhadap banjir permintaan saja. Kontrol utama terhadap
   // tebak-kata-sandi adalah penguncian akun 15 menit setelah 5 kali gagal
   // (PRD §4.5); batas ini sengaja longgar agar penguncian itulah yang lebih
   // dulu bekerja, bukan tertutup oleh 429 yang membingungkan.
   adminLogin: { key: 'admin-login', limit: 30, windowSeconds: 600 },
+  // Balasan WhatsApp per nomor tamu. Longgar untuk percakapan wajar — beberapa
+  // kali salah ketik lalu memperbaiki adalah hal biasa — tetapi cukup untuk
+  // menahan satu nomor membanjiri buku ucapan.
+  inboundWhatsapp: { key: 'inbound-wa', limit: 20, windowSeconds: 3600 },
 } as const satisfies Record<string, RateLimitConfig>;
 
 export type RateLimitResult = {

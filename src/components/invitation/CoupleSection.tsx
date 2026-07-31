@@ -93,14 +93,14 @@ function PersonBlock({
 
       {orangTua ? (
         <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-          {/* Urutan kelahiran ikut kalimat hanya bila diisi di Sheet. */}
+          {/* Urutan kelahiran ikut kalimat hanya bila diisi di Pengaturan. */}
           {person.anakKe ? `${sebutan} ${person.anakKe} dari` : `${sebutan} dari`}
           <br />
           {orangTua}
         </p>
       ) : null}
 
-      {/* Tautan Instagram disembunyikan otomatis bila kolomnya kosong di Sheet. */}
+      {/* Tautan Instagram disembunyikan otomatis bila kolomnya dikosongkan. */}
       {person.instagram ? (
         <a
           href={`https://instagram.com/${person.instagram.replace(/^@/, '')}`}

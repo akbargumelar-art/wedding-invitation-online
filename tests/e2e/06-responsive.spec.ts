@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
-  applySheetOverride,
   GALLERY_ROWS,
   loginAsAdmin,
   openInvitation,
   resetConfig,
+  setGalleryRows,
 } from './helpers';
 
 /**
@@ -112,7 +112,7 @@ test('amplop digital yang terbuka tetap rapi di 320px', async ({ page }) => {
 test('lightbox galeri memenuhi layar tanpa menggeser halaman', async ({ page, request }) => {
   // Galeri disemai khusus untuk pengujian ini; konten yang dikirim ke tamu
   // tidak memuatnya.
-  await applySheetOverride(request, { galeri: GALLERY_ROWS });
+  await setGalleryRows(request, GALLERY_ROWS);
 
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto('/to/budi-santoso');

@@ -50,10 +50,31 @@ export async function patchJson<T>(url: string, payload: unknown, headers?: Head
   }
 }
 
-export async function postForm<T>(url: string, form: FormData): Promise<ApiResult<T>> {
+export async function putJson<T>(url: string, payload: unknown, headers?: HeadersInit): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(payload),
+    });
+    return handle<T>(response);
+  } catch {
+    return { ok: false, code: 'NETWORK', message: GENERIC_ERROR };
+  }
+}
+
+export async function deleteJson<T>(url: string, headers?: HeadersInit): Promise<ApiResult<T>> {
+  try {
+    return handle<T>(await fetch(url, { method: 'DELETE', headers: { ...headers } }));
+  } catch {
+    return { ok: false, code: 'NETWORK', message: GENERIC_ERROR };
+  }
+}
+
+export async function postForm<T>(url: string, form: FormData, headers?: HeadersInit): Promise<ApiResult<T>> {
   try {
     // Content-Type sengaja tidak diset agar browser menyusun boundary multipart.
-    const response = await fetch(url, { method: 'POST', body: form });
+    const response = await fetch(url, { method: 'POST', body: form, headers: { ...headers } });
     return handle<T>(response);
   } catch {
     return { ok: false, code: 'NETWORK', message: GENERIC_ERROR };

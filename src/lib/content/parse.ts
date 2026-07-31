@@ -4,21 +4,34 @@ import { slugify } from '@/lib/text';
 import type {
   BankAccount,
   Content,
+  ContentRecords,
   ContentSource,
   GalleryItem,
   Guest,
-  RawSheetData,
+  RawContentMatrix,
   ScheduleItem,
   SiteConfig,
 } from './types';
 
 /**
- * Parser tahan banting untuk isi Google Sheet (mitigasi R-2).
+ * Parser tahan banting untuk isi undangan (mitigasi R-2).
  *
  * Aturan mainnya: satu baris rusak TIDAK BOLEH menjatuhkan halaman. Baris yang
  * gagal divalidasi dilewati dan dicatat sebagai warning; kolom tak dikenal
  * diabaikan; nilai yang hilang diisi default.
+ *
+ * Sumbernya kini database, yang divalidasi saat tulis — tapi lapisan ini tetap
+ * dipertahankan sepenuhnya, karena berkas seed masih lewat sini dan karena
+ * baris yang tersimpan sebelum sebuah aturan diperketat tetap harus aman
+ * dirender.
  */
+
+/** Penamaan baris di pesan peringatan; berbeda antara sumber matriks dan DB. */
+type RowLabel = (index: number) => string;
+
+const RECORD_LABEL: RowLabel = (index) => `#${index + 1}`;
+/** +1 karena baris header, +1 lagi karena manusia menghitung mulai dari 1. */
+const MATRIX_LABEL: RowLabel = (index) => `baris ${index + 2}`;
 
 const TRUTHY = new Set(['true', 'ya', 'yes', '1', 'y', 'aktif', 'tampil']);
 const FALSY = new Set(['false', 'tidak', 'no', '0', 'n', 'nonaktif', 'sembunyi']);
@@ -76,7 +89,7 @@ export function configRowsToMap(rows: string[][]): Record<string, string> {
 // Config
 // -----------------------------------------------------------------------------
 
-const DEFAULT_CONFIG: SiteConfig = {
+export const DEFAULT_CONFIG: SiteConfig = {
   isDraft: true,
   modeSyari: false,
   urutanMempelai: 'wanita_dulu',
@@ -199,28 +212,100 @@ export function parseConfig(map: Record<string, string>, warnings: string[]): Si
   };
 }
 
+/**
+ * Kebalikan `parseConfig`: ubah konfigurasi bertipe menjadi peta kunci/nilai
+ * siap simpan. Dipakai dashboard admin saat menulis ke tabel `site_config`.
+ *
+ * Wajib bergerak seiring `parseConfig` — bila satu kunci ditambahkan di sana
+ * tanpa ditambahkan di sini, nilainya akan tersimpan tapi tidak pernah terbaca.
+ * Uji round-trip di `tests/unit/parse.test.ts` yang menjaganya.
+ */
+export function configToMap(config: SiteConfig): Record<string, string> {
+  const bool = (value: boolean): string => (value ? 'TRUE' : 'FALSE');
+
+  return {
+    is_draft: bool(config.isDraft),
+    mode_syari: bool(config.modeSyari),
+    urutan_mempelai: config.urutanMempelai,
+
+    pria_panggilan: config.pria.panggilan,
+    pria_nama_lengkap: config.pria.namaLengkap,
+    pria_bin: config.pria.binBinti,
+    pria_ayah: config.pria.ayah,
+    pria_ibu: config.pria.ibu,
+    pria_anak_ke: config.pria.anakKe,
+    pria_foto: config.pria.foto,
+    pria_ig: config.pria.instagram,
+
+    wanita_panggilan: config.wanita.panggilan,
+    wanita_nama_lengkap: config.wanita.namaLengkap,
+    wanita_binti: config.wanita.binBinti,
+    wanita_ayah: config.wanita.ayah,
+    wanita_ibu: config.wanita.ibu,
+    wanita_anak_ke: config.wanita.anakKe,
+    wanita_foto: config.wanita.foto,
+    wanita_ig: config.wanita.instagram,
+
+    quote_arab: config.quoteArab,
+    quote_terjemahan: config.quoteTerjemahan,
+    quote_sumber: config.quoteSumber,
+
+    salam_pembuka: config.salamPembuka,
+    kalimat_pembuka: config.kalimatPembuka,
+    kalimat_penutup: config.kalimatPenutup,
+    doa_penutup: config.doaPenutup,
+    salam_penutup: config.salamPenutup,
+
+    venue_nama: config.venueNama,
+    venue_alamat: config.venueAlamat,
+    venue_catatan: config.venueCatatan,
+    gmaps_url: config.gmapsUrl,
+    gmaps_embed: config.gmapsEmbed,
+
+    qris_image_url: config.qrisImageUrl,
+    qris_nama_merchant: config.qrisNamaMerchant,
+
+    backsound_url: config.backsoundUrl,
+
+    rsvp_open: bool(config.rsvpOpen),
+    deadline_rsvp: config.deadlineRsvp ?? '',
+    moderasi_ucapan: bool(config.moderasiUcapan),
+
+    og_image: config.ogImage,
+    cover_image: config.coverImage,
+  };
+}
+
 // -----------------------------------------------------------------------------
 // Jadwal / Galeri / Rekening / Tamu
 // -----------------------------------------------------------------------------
 
 export function parseSchedule(rows: string[][], warnings: string[]): ScheduleItem[] {
+  return parseScheduleRecords(rowsToRecords(rows), warnings, MATRIX_LABEL);
+}
+
+export function parseScheduleRecords(
+  records: Record<string, string>[],
+  warnings: string[],
+  label: RowLabel = RECORD_LABEL,
+): ScheduleItem[] {
   const items: ScheduleItem[] = [];
 
-  rowsToRecords(rows).forEach((record, index) => {
-    const baris = index + 2; // +1 header, +1 karena manusia menghitung dari 1
+  records.forEach((record, index) => {
+    const baris = label(index);
     if (!toBool(record['tampil'], true)) return;
 
     const acara = record['acara'] ?? '';
     const tanggal = record['tanggal'] ?? '';
     if (!acara || !tanggal) {
-      warnings.push(`Jadwal baris ${baris}: kolom acara/tanggal kosong, baris dilewati.`);
+      warnings.push(`Jadwal ${baris}: kolom acara/tanggal kosong, baris dilewati.`);
       return;
     }
 
     const zona = normalizeZone(record['zona']);
     const startsAtMs = toEpochMs(tanggal, record['jam_mulai'], zona);
     if (startsAtMs === null) {
-      warnings.push(`Jadwal baris ${baris}: tanggal "${tanggal}" tidak valid, baris dilewati.`);
+      warnings.push(`Jadwal ${baris}: tanggal "${tanggal}" tidak valid, baris dilewati.`);
       return;
     }
 
@@ -244,14 +329,22 @@ export function parseSchedule(rows: string[][], warnings: string[]): ScheduleIte
 }
 
 export function parseGallery(rows: string[][], warnings: string[]): GalleryItem[] {
+  return parseGalleryRecords(rowsToRecords(rows), warnings, MATRIX_LABEL);
+}
+
+export function parseGalleryRecords(
+  records: Record<string, string>[],
+  warnings: string[],
+  label: RowLabel = RECORD_LABEL,
+): GalleryItem[] {
   const items: GalleryItem[] = [];
 
-  rowsToRecords(rows).forEach((record, index) => {
+  records.forEach((record, index) => {
     if (!toBool(record['tampil'], true)) return;
 
     const url = record['url'] ?? '';
     if (!url) {
-      warnings.push(`Galeri baris ${index + 2}: kolom url kosong, baris dilewati.`);
+      warnings.push(`Galeri ${label(index)}: kolom url kosong, baris dilewati.`);
       return;
     }
 
@@ -267,15 +360,23 @@ export function parseGallery(rows: string[][], warnings: string[]): GalleryItem[
 }
 
 export function parseAccounts(rows: string[][], warnings: string[]): BankAccount[] {
+  return parseAccountRecords(rowsToRecords(rows), warnings, MATRIX_LABEL);
+}
+
+export function parseAccountRecords(
+  records: Record<string, string>[],
+  warnings: string[],
+  label: RowLabel = RECORD_LABEL,
+): BankAccount[] {
   const items: BankAccount[] = [];
 
-  rowsToRecords(rows).forEach((record, index) => {
+  records.forEach((record, index) => {
     if (!toBool(record['tampil'], true)) return;
 
     const bank = record['bank'] ?? '';
     const nomor = record['nomor'] ?? '';
     if (!bank || !nomor) {
-      warnings.push(`Rekening baris ${index + 2}: bank/nomor kosong, baris dilewati.`);
+      warnings.push(`Rekening ${label(index)}: bank/nomor kosong, baris dilewati.`);
       return;
     }
 
@@ -287,21 +388,29 @@ export function parseAccounts(rows: string[][], warnings: string[]): BankAccount
 }
 
 export function parseGuests(rows: string[][], warnings: string[]): Guest[] {
+  return parseGuestRecords(rowsToRecords(rows), warnings, MATRIX_LABEL);
+}
+
+export function parseGuestRecords(
+  records: Record<string, string>[],
+  warnings: string[],
+  label: RowLabel = RECORD_LABEL,
+): Guest[] {
   const seen = new Set<string>();
   const items: Guest[] = [];
 
-  rowsToRecords(rows).forEach((record, index) => {
+  records.forEach((record, index) => {
     const nama = record['nama'] ?? '';
     if (!nama) return;
 
-    // Slug boleh dikosongkan di Sheet; sistem menurunkannya dari nama.
+    // Slug boleh dikosongkan; sistem menurunkannya dari nama.
     let slug = slugify(record['slug'] ?? '') || slugify(nama);
     if (!slug) return;
 
     if (seen.has(slug)) {
       let n = 2;
       while (seen.has(`${slug}-${n}`)) n += 1;
-      warnings.push(`Tamu baris ${index + 2}: slug "${slug}" duplikat, dipakai "${slug}-${n}".`);
+      warnings.push(`Tamu ${label(index)}: slug "${slug}" duplikat, dipakai "${slug}-${n}".`);
       slug = `${slug}-${n}`;
     }
 
@@ -312,18 +421,42 @@ export function parseGuests(rows: string[][], warnings: string[]): Guest[] {
   return items;
 }
 
-/** Rakit seluruh tab menjadi satu model konten siap render. */
-export function parseContent(raw: RawSheetData, source: ContentSource, fetchedAt: string): Content {
+/** Rakit seluruh bagian menjadi satu model konten siap render. */
+export function parseContentRecords(
+  records: ContentRecords,
+  source: ContentSource,
+  fetchedAt: string,
+  label: RowLabel = RECORD_LABEL,
+): Content {
   const warnings: string[] = [];
 
   return {
-    config: parseConfig(configRowsToMap(raw.config), warnings),
-    schedule: parseSchedule(raw.jadwal, warnings),
-    gallery: parseGallery(raw.galeri, warnings),
-    accounts: parseAccounts(raw.rekening, warnings),
-    guests: parseGuests(raw.tamu, warnings),
+    config: parseConfig(records.config, warnings),
+    schedule: parseScheduleRecords(records.jadwal, warnings, label),
+    gallery: parseGalleryRecords(records.galeri, warnings, label),
+    accounts: parseAccountRecords(records.rekening, warnings, label),
+    guests: parseGuestRecords(records.tamu, warnings, label),
     fetchedAt,
     source,
     warnings,
+  };
+}
+
+/** Varian untuk matriks berheader — jalur berkas seed. */
+export function parseContent(
+  raw: RawContentMatrix,
+  source: ContentSource,
+  fetchedAt: string,
+): Content {
+  return parseContentRecords(matrixToRecords(raw), source, fetchedAt, MATRIX_LABEL);
+}
+
+export function matrixToRecords(raw: RawContentMatrix): ContentRecords {
+  return {
+    config: configRowsToMap(raw.config),
+    jadwal: rowsToRecords(raw.jadwal),
+    galeri: rowsToRecords(raw.galeri),
+    rekening: rowsToRecords(raw.rekening),
+    tamu: rowsToRecords(raw.tamu),
   };
 }

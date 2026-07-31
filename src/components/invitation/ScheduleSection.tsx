@@ -15,7 +15,7 @@ import type { ScheduleItem, SiteConfig } from '@/lib/content/types';
  *
  * Pengelompokannya memakai tanggal, bukan nama acara. Mencocokkan nama berarti
  * menuliskan "Akad"/"Resepsi" di dalam kode, dan tidak ada nilai konten yang
- * boleh di-hardcode (PRD §2.4). Urutan kartu mengikuti urutan baris di Sheet,
+ * boleh di-hardcode (PRD §2.4). Urutan kartu mengikuti tanggal dan jam mulai,
  * jadi mempelai tetap yang menentukan susunannya.
  *
  * Variasi kartu (US visual):
@@ -189,7 +189,7 @@ export function ScheduleSection({
 
 type HariAcara = { tanggal: string; acara: ScheduleItem[] };
 
-/** Kelompokkan per tanggal sambil mempertahankan urutan kemunculan di Sheet. */
+/** Kelompokkan per tanggal sambil mempertahankan urutan kemunculannya. */
 function groupByDate(schedule: ScheduleItem[]): HariAcara[] {
   const hasil: HariAcara[] = [];
 
