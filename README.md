@@ -394,12 +394,33 @@ cd /opt/walimah
 sudo git pull
 sudo ./deploy/install.sh          # kode, dependensi, env, direktori media
 
-# Pindahkan isi undangan yang sesungguhnya.
-sudo -u walimah npm run import-snapshot                        # pratinjau dulu
-sudo -u walimah npm run import-snapshot -- --confirm --replace
+# Pindahkan isi undangan yang sesungguhnya. Jalankan pratinjaunya dulu dan
+# PERIKSA baris "Database:" pada keluarannya — lihat catatan di bawah.
+sudo -u walimah env HOME=/tmp DATABASE_PATH=/var/walimah/data/app.db \
+  ./node_modules/.bin/tsx scripts/import-snapshot.ts
+
+sudo -u walimah env HOME=/tmp DATABASE_PATH=/var/walimah/data/app.db \
+  ./node_modules/.bin/tsx scripts/import-snapshot.ts --confirm --replace
 
 sudo systemctl restart walimah
 ```
+
+Tiga hal pada perintah di atas yang tampak bertele-tele tetapi semuanya perlu:
+
+- **`DATABASE_PATH` ditulis eksplisit.** Skrip CLI tidak membaca
+  `/etc/walimah/env` — berkas itu hanya dimuat systemd, dan mode 600 root:root
+  membuatnya tak terbaca oleh user layanan. Tanpa variabel ini, `env.ts` jatuh ke
+  bawaan `./data/app.db`, yang berarti skripnya membuat database BARU di
+  `/opt/walimah/data/` dan isi undangan sungguhan tidak tersentuh sama sekali.
+  Baris `Database:` pada keluaran pratinjau memperlihatkan berkas mana yang akan
+  ditulis; pastikan isinya `/var/walimah/…` sebelum menambahkan `--confirm`.
+- **Dijalankan sebagai `walimah`, bukan root.** SQLite membuat berkas
+  pendamping `-wal` dan `-shm` di direktori yang sama. Bila root yang
+  membuatnya, layanan yang berjalan sebagai `walimah` tidak dapat menulisinya
+  lagi. Bila terlanjur: `sudo chown -R walimah:walimah /var/walimah/data`.
+- **`./node_modules/.bin/tsx`, bukan `npm run`.** User `walimah` adalah system
+  user tanpa direktori home, dan npm gagal saat hendak menulis berkas lognya.
+  `HOME=/tmp` menutup sisa kasus serupa.
 
 `--replace` diperlukan karena layanan hampir pasti sudah sempat menyala dan
 menyemai data contoh. Skripnya menolak berjalan tanpa itu bila database sudah

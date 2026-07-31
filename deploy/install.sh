@@ -316,9 +316,13 @@ for attempt in 1 2 3 4 5 6 7 8 9 10; do
     echo
     echo "    Menaikkan dari versi yang isinya masih dikelola lewat Google Sheet?"
     echo "    Isi undangan sekarang tinggal di database, dan database yang kosong"
-    echo "    disemai dari data contoh — jadi pindahkan dulu isi aslinya:"
-    echo "        npm run import-snapshot                  (pratinjau)"
-    echo "        npm run import-snapshot -- --confirm --replace"
+    echo "    disemai dari data contoh — jadi pindahkan dulu isi aslinya."
+    echo "    Jalankan pratinjau, PERIKSA baris 'Database:' pada keluarannya, lalu"
+    echo "    ulangi dengan --confirm --replace:"
+    echo
+    echo "        sudo -u ${SERVICE_USER} env HOME=/tmp DATABASE_PATH=${DATA_ROOT}/data/app.db \\"
+    echo "          ./node_modules/.bin/tsx scripts/import-snapshot.ts"
+    echo
     echo "    Baris cron export ke Sheet sudah tidak ada; ganti isi crontab dengan"
     echo "    deploy/crontab.example yang baru."
     echo "    Log:  journalctl -u walimah -f"
