@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { usePageFold } from './usePageFold';
 
 export type BookPage = {
   /** Sama dengan id seksi di dalamnya, supaya tautan #anchor tetap bekerja. */
@@ -69,6 +70,7 @@ export function BookShell({
   const [index, setIndex] = useState(0);
 
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const stageRef = useRef<HTMLDivElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   /** True hanya bila perpindahan dipicu tamu — supaya fokus tidak dicuri saat muat. */
@@ -155,6 +157,10 @@ export function BookShell({
     }
   }, [index, mode]);
 
+  // Lipatan dua panel saat berpindah halaman. Dipasang setelah efek di atas
+  // supaya posisi gulir yang disalin ke lembar tiruan sudah final.
+  usePageFold({ stageRef, pageRefs, index, enabled: mode === 'book' });
+
   useEffect(() => {
     if (mode !== 'book' || !active) return;
 
@@ -220,6 +226,7 @@ export function BookShell({
       <ViewToggle mode={mode} onSwitch={switchMode} isDraft={isDraft} />
 
       <div
+        ref={stageRef}
         className="book-stage"
         onTouchStart={(event) => {
           const touch = event.touches[0];

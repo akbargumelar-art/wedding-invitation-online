@@ -32,7 +32,7 @@ export function CoupleSection({ config }: { config: SiteConfig }) {
       <div className="container-invite">
         <SectionHeading eyebrow="Bismillahirrahmanirrahim" title="Kedua Mempelai" />
 
-        <Reveal className="mt-10">
+        <Reveal variant="x" delayMs={240} className="mt-10">
           <article className="card px-6 py-8">
             {urutan.map(({ person, peran }, index) => (
               <div key={person.namaLengkap || peran}>

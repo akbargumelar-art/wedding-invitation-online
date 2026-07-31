@@ -25,7 +25,7 @@ export function GallerySection({ items }: { items: GalleryItem[] }) {
 
         <div className="mt-8 grid grid-cols-2 gap-3">
           {items.map((item, index) => (
-            <Reveal key={`${item.url}-${index}`} delayMs={(index % 4) * 80}>
+            <Reveal key={`${item.url}-${index}`} delayMs={240 + (index % 4) * 90}>
               <button
                 type="button"
                 onClick={() => setActiveIndex(index)}

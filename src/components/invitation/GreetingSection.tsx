@@ -40,7 +40,7 @@ export function GreetingSection({ config }: { config: SiteConfig }) {
         </Reveal>
 
         {hasQuote ? (
-          <Reveal delayMs={120} className="mt-10">
+          <Reveal variant="x" delayMs={240} className="mt-10">
             <figure className="card px-6 py-8 text-center">
               {config.quoteArab ? (
                 <p dir="rtl" lang="ar" className="arabic text-jade-900">
@@ -64,7 +64,7 @@ export function GreetingSection({ config }: { config: SiteConfig }) {
         ) : null}
 
         {config.kalimatPembuka ? (
-          <Reveal delayMs={200} className="mt-10">
+          <Reveal variant="x" delayMs={360} className="mt-10">
             <p className="text-center leading-relaxed text-ink-soft whitespace-pre-line">
               {config.kalimatPembuka}
             </p>

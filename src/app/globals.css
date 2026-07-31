@@ -435,6 +435,238 @@
     pointer-events: none;
   }
 
+  /* ---------------------------------------------------------------------------
+     Lipatan dua panel saat berpindah halaman.
+
+     Lembar tiruan dibuat sesaat oleh usePageFold.ts, dibelah di garis tengah:
+     panel kiri diam, panel kanan berputar pada engsel di tengah. Struktur
+     halaman yang sesungguhnya tidak ikut berubah — alasan lengkapnya ada di
+     berkas hook itu.
+     --------------------------------------------------------------------------- */
+
+  /* Selama lipatan berjalan, lembar aslinya disembunyikan tanpa transisi.
+     Tanpa ini tamu melihat dua lembar bergerak sekaligus: yang asli berputar di
+     engsel kiri, yang tiruan melipat di tengah. */
+  .book-stage[data-folding='true'] .book-page[data-state='prev'] {
+    transition: none;
+    opacity: 0;
+  }
+
+  /* ---------------------------------------------------------------------------
+     Perpindahan halaman mode buku: dua panel yang menekuk lalu berayun pergi.
+
+     Lembar tiruan dibuat sesaat oleh usePageFold.ts, dibelah di garis tengah
+     menjadi dua panel dengan engsel sungguhan di antaranya. Panel kanan menekuk
+     pada engsel itu — sedalam kertas yang melengkung saat diangkat — lalu kedua
+     panel pergi bersama berputar pada punggung buku di tepi kiri.
+
+     Versi pertama melipat panel kanan penuh 180 derajat ke atas panel kiri:
+     lipatan buku yang harfiah. Itu tidak dapat dipakai di sini, dan alasannya
+     bukan selera. Satu halaman di sini menempati satu layar penuh, bukan
+     sepasang halaman terbuka. Melipat separuhnya membuat separuh layar berubah
+     menjadi punggung kertas kosong yang DIAM selama ratusan milidetik, sementara
+     halaman baru hanya tampak separuh di sisa layar — terbaca rusak, bukan
+     seperti buku. Geometri sekarang tetap dua panel berengsel, tetapi keduanya
+     pergi bersama sehingga halaman baru tersingkap utuh.
+     --------------------------------------------------------------------------- */
+
+  /* Selama lipatan berjalan, lembar aslinya disembunyikan tanpa transisi.
+     Tanpa ini tamu melihat dua lembar bergerak sekaligus: yang asli berputar
+     sendiri, yang tiruan menekuk. */
+  .book-stage[data-folding='true'] .book-page[data-state='prev'] {
+    transition: none;
+    opacity: 0;
+  }
+
+  .book-fold {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    /* Tidak boleh menangkap sentuhan: gestur geser untuk membalik halaman harus
+       tetap sampai ke lembar di bawahnya, bahkan selama animasi berjalan. */
+    pointer-events: none;
+    /* Tanpa perspective sendiri: titik pandang diambil dari `.book-stage`,
+       supaya tekukan dan ayunannya berada di ruang 3D yang sama. */
+    transform-style: preserve-3d;
+    transform-origin: left center;
+
+    /* Gerak kertas tidak melambat di ujung seperti animasi antarmuka; ia
+       berhenti karena tertahan. */
+    --fold-ease: cubic-bezier(0.36, 0.02, 0.22, 1);
+  }
+
+  .book-fold-panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    transform-style: preserve-3d;
+  }
+
+  .book-fold-left {
+    left: 0;
+  }
+
+  .book-fold-right {
+    left: 50%;
+    /* Engsel di garis tengah lembar — inilah yang membuat tekukannya terbaca
+       sebagai kertas melengkung, bukan dua kotak yang bergerak sendiri-sendiri. */
+    transform-origin: left center;
+  }
+
+  .book-fold-face,
+  .book-fold-back {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    backface-visibility: hidden;
+    background-color: var(--color-cream);
+  }
+
+  /* Sisi belakang kertas — kosong, sedikit lebih gelap ke arah punggung. Tanpa
+     ini lembar menghilang begitu melewati 90 derajat, dan gerakannya kehilangan
+     kesan bendanya: yang tampak hanya gambar yang memudar. */
+  .book-fold-back {
+    transform: rotateY(180deg);
+    background-image: linear-gradient(
+      to left,
+      var(--color-cream) 0%,
+      var(--color-cream-deep) 55%,
+      color-mix(in srgb, var(--color-jade-900) 12%, var(--color-cream-deep)) 100%
+    );
+  }
+
+  /* Isi lembar dilukis penuh lalu digeser, bukan diperkecil: panel selebar
+     separuh layar memotongnya menjadi belahan yang tepat. */
+  .book-fold-clip {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 200%;
+  }
+
+  .book-fold-left .book-fold-clip {
+    left: 0;
+  }
+
+  .book-fold-right .book-fold-clip {
+    left: -100%;
+  }
+
+  /* Salinan lembar di dalam lipatan hanya berperan sebagai gambar: seluruh
+     transform keadaan (prev/next) miliknya dinetralkan. */
+  .book-fold .book-page {
+    transform: none;
+    opacity: 1;
+    box-shadow: none;
+    transition: none;
+    overflow: hidden;
+  }
+
+  /* Bayangan yang menggelap saat lembar terangkat — kertas menutupi cahaya bagi
+     dirinya sendiri. */
+  .book-fold-face::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: rgb(16 60 45 / 0.4);
+    opacity: 0;
+    animation: book-fold-shade 0.75s var(--fold-ease) forwards;
+  }
+
+  .book-fold[data-direction='forward'] {
+    animation: book-fold-turn 0.75s var(--fold-ease) forwards;
+  }
+
+  .book-fold[data-direction='forward'] .book-fold-right {
+    animation: book-fold-bend 0.75s var(--fold-ease) forwards;
+  }
+
+  .book-fold[data-direction='backward'] {
+    animation: book-fold-turn-back 0.75s var(--fold-ease) forwards;
+  }
+
+  .book-fold[data-direction='backward'] .book-fold-right {
+    animation: book-fold-bend-back 0.75s var(--fold-ease) forwards;
+  }
+
+  .book-fold[data-direction='backward'] .book-fold-face::after {
+    animation-name: book-fold-shade-reverse;
+  }
+
+  /* Seluruh lembar berputar pada punggung buku. */
+  @keyframes book-fold-turn {
+    0% {
+      transform: rotateY(0deg);
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      transform: rotateY(-118deg);
+      opacity: 0;
+    }
+  }
+
+  @keyframes book-fold-turn-back {
+    0% {
+      transform: rotateY(-118deg);
+      opacity: 0;
+    }
+    30% {
+      opacity: 1;
+    }
+    100% {
+      transform: rotateY(0deg);
+      opacity: 1;
+    }
+  }
+
+  /* Tekukan di garis tengah: paling dalam saat lembar setengah terangkat, lalu
+     mendatar lagi menjelang lepas — persis perilaku kertas yang dibalik. */
+  @keyframes book-fold-bend {
+    0% {
+      transform: rotateY(0deg);
+    }
+    45% {
+      transform: rotateY(-26deg);
+    }
+    100% {
+      transform: rotateY(-6deg);
+    }
+  }
+
+  @keyframes book-fold-bend-back {
+    0% {
+      transform: rotateY(-6deg);
+    }
+    55% {
+      transform: rotateY(-26deg);
+    }
+    100% {
+      transform: rotateY(0deg);
+    }
+  }
+
+  @keyframes book-fold-shade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes book-fold-shade-reverse {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
   /* Pembungkus setinggi layar, semata-mata agar panah di tepi punya acuan
      "tengah layar". Ia tidak boleh menangkap sentuhan: seluruh isi lembar ada di
      bawahnya, termasuk gestur geser untuk membalik halaman. */
@@ -574,18 +806,98 @@
   }
 
   /* Dipakai oleh Reveal: elemen muncul saat masuk viewport (Intersection Observer). */
+  /* ---------------------------------------------------------------------------
+     Animasi masuk saat digulir.
+
+     Jaraknya sengaja 28px, bukan belasan: pada layar ponsel, pergeseran di bawah
+     ~20px hampir tidak terbaca sebagai gerakan — yang tertangkap mata hanya
+     perubahan opasitas, dan hasilnya terasa datar meski animasinya berjalan.
+     --------------------------------------------------------------------------- */
   .reveal {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(28px);
     transition:
       opacity 0.7s var(--ease-out-soft),
       transform 0.7s var(--ease-out-soft);
+    transition-delay: var(--reveal-delay, 0ms);
     will-change: opacity, transform;
   }
 
   .reveal[data-visible='true'] {
     opacity: 1;
     transform: none;
+  }
+
+  /* Masuk dari samping, arah bergantian antar-seksi.
+
+     Parity dibaca dari posisi lembar di dalam panggung, jadi urutannya mengikuti
+     susunan undangan apa adanya — menambah atau memindahkan seksi tidak menuntut
+     siapa pun menyetel ulang arah satu per satu. `display: contents` pada lembar
+     di mode gulir menghapus kotaknya, tetapi elemennya tetap ada di pohon DOM
+     sehingga :nth-of-type masih cocok.
+
+     Jaraknya WAJIB tidak melebihi padding samping `.container-invite` (1,5rem).
+     Elemen yang digeser melewatinya menonjol keluar viewport, dan `overflow`
+     tidak menolongnya: pemotongan CSS hanya memengaruhi apa yang dilukis,
+     sedangkan getBoundingClientRect tetap melaporkan posisi tergesernya — audit
+     geser horizontal di 06-responsive.spec.ts membaca angka itu. Karena itu
+     jaraknya ikut lebar layar: 16px di ponsel, 28px begitu ada ruang. */
+  .book-page .reveal-x {
+    --reveal-x-distance: clamp(16px, 4vw, 28px);
+  }
+
+  .book-page:nth-of-type(odd) .reveal-x {
+    transform: translate3d(calc(-1 * var(--reveal-x-distance)), 14px, 0);
+  }
+
+  .book-page:nth-of-type(even) .reveal-x {
+    transform: translate3d(var(--reveal-x-distance), 14px, 0);
+  }
+
+  .reveal-x[data-visible='true'] {
+    transform: none;
+  }
+
+  /* Animasi masuk hanya berlaku di mode gulir.
+     Di mode buku, transisinya adalah lipatan halaman itu sendiri — menjalankan
+     keduanya sekaligus bukan cuma ramai, tetapi juga memindahkan isi lembar
+     beberapa belas piksel ke samping selama animasi, dan pada layar 320px
+     pergeseran itu cukup untuk mendorong teks ke bawah panah pembalik yang
+     mengambang di tepi. */
+  .book-root[data-view='book'] .reveal,
+  .book-root[data-view='book'] .reveal-x,
+  .book-root[data-view='book'] .reveal-stagger > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  /* Pembungkus yang diam; anak-anaknya yang muncul berurutan. */
+  .reveal-stagger > * {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.6s var(--ease-out-soft),
+      transform 0.6s var(--ease-out-soft);
+    will-change: opacity, transform;
+  }
+
+  .reveal-stagger[data-visible='true'] > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  .reveal-stagger[data-visible='true'] > *:nth-child(1) {
+    transition-delay: calc(var(--reveal-delay, 0ms));
+  }
+  .reveal-stagger[data-visible='true'] > *:nth-child(2) {
+    transition-delay: calc(var(--reveal-delay, 0ms) + 90ms);
+  }
+  .reveal-stagger[data-visible='true'] > *:nth-child(3) {
+    transition-delay: calc(var(--reveal-delay, 0ms) + 180ms);
+  }
+  .reveal-stagger[data-visible='true'] > *:nth-child(n + 4) {
+    transition-delay: calc(var(--reveal-delay, 0ms) + 270ms);
   }
 
   /* Bilah navigasi buku menempati sudut yang biasanya dipakai tombol musik. */
@@ -841,20 +1153,15 @@
       transform 0.55s var(--ease-out-soft),
       opacity 0.45s var(--ease-out-soft);
   }
-  body[data-view='book'] .book-page[data-state='active'] {
-    transform: rotateY(0deg) translateZ(0);
-    opacity: 1;
-  }
-  body[data-view='book'] .book-page[data-state='prev'] {
-    transform: rotateY(35deg) translateX(-8%);
-    transform-origin: right center;
-    opacity: 0;
-  }
-  body[data-view='book'] .book-page[data-state='next'] {
-    transform: rotateY(-35deg) translateX(8%);
-    transform-origin: left center;
-    opacity: 0;
-  }
+  /* Aturan keadaan lembar TIDAK ditulis di sini.
+     Pernah ada satu set di blok ini yang menyetel transform, opacity, dan
+     transform-origin lembar prev/next. Selectornya (body + atribut + kelas)
+     kalah specificity untuk `transform` sehingga tampak tidak berpengaruh —
+     tetapi MENANG untuk `transform-origin`, yang hanya dideklarasikan di aturan
+     dasar `.book-page`. Akibatnya engsel berpindah diam-diam ke tepi kanan, dan
+     lembar yang dilewati berputar seperti kartu alih-alih membalik pada punggung
+     buku. Satu-satunya tempat keadaan lembar diatur adalah blok
+     `.book-root[data-view='book'] .book-page[data-state=...]` di atas. */
 
   /* ---------------------------------------------------------------------------
      Card lift + glow — hover di desktop; touch device tidak ter-trigger.
@@ -871,33 +1178,6 @@
         0 4px 12px rgb(16 60 45 / 0.08),
         0 20px 40px -18px rgb(178 140 64 / 0.35);
     }
-  }
-
-  /* ---------------------------------------------------------------------------
-     Reveal ditingkatkan — arah slide bergantian per posisi index.
-     Class tambahan (opt-in) untuk Reveal yang mau efek pindah dari samping.
-     --------------------------------------------------------------------------- */
-  .reveal-slide-left {
-    opacity: 0;
-    transform: translateX(-28px);
-    transition:
-      opacity 0.7s var(--ease-out-soft),
-      transform 0.7s var(--ease-out-soft);
-  }
-  .reveal-slide-left[data-visible='true'] {
-    opacity: 1;
-    transform: none;
-  }
-  .reveal-slide-right {
-    opacity: 0;
-    transform: translateX(28px);
-    transition:
-      opacity 0.7s var(--ease-out-soft),
-      transform 0.7s var(--ease-out-soft);
-  }
-  .reveal-slide-right[data-visible='true'] {
-    opacity: 1;
-    transform: none;
   }
 
   /* Shimmer emas — dipakai di angka countdown besar. Bergerak lambat. */
@@ -933,8 +1213,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .book-page,
-    .reveal-slide-left,
-    .reveal-slide-right,
+    .reveal-x,
+    .reveal-stagger > *,
     .card,
     .shimmer-gold,
     .ornament-ambient {

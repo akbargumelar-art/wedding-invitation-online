@@ -114,7 +114,7 @@ export function RsvpSection({
           </p>
         </SectionHeading>
 
-        <Reveal className="mt-8">
+        <Reveal variant="x" delayMs={240} className="mt-8">
           <div className="card px-6 py-7">
             {!open ? (
               <p className="text-center text-ink-soft">{closedMessage}</p>

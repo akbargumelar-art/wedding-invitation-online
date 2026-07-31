@@ -63,7 +63,7 @@ export function ScheduleSection({
         <MegaMendungDivider className="mt-4" />
 
         {acaraUtama ? (
-          <Reveal className="mt-8">
+          <Reveal variant="x" delayMs={240} className="mt-8">
             <Countdown targetMs={acaraUtama.startsAtMs} />
           </Reveal>
         ) : null}
@@ -84,7 +84,7 @@ export function ScheduleSection({
               : 'text-center font-display text-lg text-jade-800/90';
 
             return (
-              <Reveal as="li" key={`${grup.tanggal}-${index}`} delayMs={index * 100}>
+              <Reveal as="li" key={`${grup.tanggal}-${index}`} delayMs={240 + index * 110}>
                 <article className={containerClass}>
                   {/* Aksen sudut untuk kartu utama — sentuhan ornamen Islami/Sunda halus. */}
                   {isUtama ? (

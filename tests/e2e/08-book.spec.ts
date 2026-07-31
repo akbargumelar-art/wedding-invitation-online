@@ -410,6 +410,70 @@ test.describe('Mode buku', () => {
     await swipe(page, 'left');
     expect(await activePage(page)).toBe('mempelai');
   });
+
+  /**
+   * Lipatan dua panel membelah halaman menjadi dua, dan itu hanya mungkin bila
+   * isinya dirender dua kali. Yang dibelah karena itu adalah SALINAN sesaat
+   * dengan seluruh id dilucuti — lihat src/components/invitation/usePageFold.ts.
+   *
+   * Dua pengujian di bawah menjaga tepat hal itu: bahwa lipatannya benar-benar
+   * terbentuk, dan bahwa ia tidak pernah menggandakan id formulir. Id kembar
+   * membuat `<label for>` menunjuk ke kolom yang salah — tamu mengetik di
+   * salinan yang tidak pernah terkirim, tanpa satu pun galat muncul.
+   */
+  test('lipatan dua panel terbentuk saat berpindah lalu dibersihkan', async ({ page }) => {
+    await page.goto('/to/budi-santoso');
+    await openCover(page);
+
+    await page.getByRole('button', { name: 'Halaman berikutnya' }).click();
+
+    const lipatan = await page.evaluate(() => ({
+      ada: document.querySelector('.book-fold') !== null,
+      panel: document.querySelectorAll('.book-fold-panel').length,
+      // Sisi belakang kertas — tanpa ini lembar menghilang begitu melewati
+      // 90 derajat dan lipatannya kehilangan kesan bendanya.
+      punyaSisiBelakang: document.querySelector('.book-fold-back') !== null,
+      // Lembar tiruan tidak boleh menelan gestur geser.
+      pointerEvents: getComputedStyle(document.querySelector('.book-fold') as Element)
+        .pointerEvents,
+    }));
+
+    expect(lipatan.ada).toBe(true);
+    expect(lipatan.panel).toBe(2);
+    expect(lipatan.punyaSisiBelakang).toBe(true);
+    expect(lipatan.pointerEvents).toBe('none');
+
+    // Lembar tiruan wajib hilang setelah animasi; menumpuk di DOM berarti
+    // kebocoran node pada tiap perpindahan halaman.
+    await expect.poll(() => page.locator('.book-fold').count()).toBe(0);
+  });
+
+  test('lipatan tidak pernah menggandakan id di dalam halaman', async ({ page }) => {
+    await page.goto('/to/budi-santoso');
+    await openCover(page);
+
+    const next = page.getByRole('button', { name: 'Halaman berikutnya' });
+
+    // Berhenti di lembar RSVP: di sanalah formulir ber-id berada, jadi lembar
+    // itulah yang paling berbahaya bila tergandakan.
+    for (let step = 0; step < 12; step += 1) {
+      if ((await activePage(page)) === 'rsvp') break;
+      await next.click();
+      await settle(page);
+    }
+
+    expect(await activePage(page)).toBe('rsvp');
+
+    // Berpindah dari lembar RSVP — salinannya yang dilipat.
+    await next.click();
+
+    const duplikat = await page.evaluate(() => {
+      const ids = Array.from(document.querySelectorAll('[id]'), (node) => node.id).filter(Boolean);
+      return ids.filter((id, position) => ids.indexOf(id) !== position);
+    });
+
+    expect(duplikat).toEqual([]);
+  });
 });
 
 test.describe('Beralih tampilan', () => {

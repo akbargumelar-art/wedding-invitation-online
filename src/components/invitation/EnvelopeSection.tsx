@@ -144,7 +144,7 @@ export function EnvelopeSection({
 
         <ArabesqueDivider className="mt-4 mx-auto max-w-xs" />
 
-        <Reveal className="mt-8">
+        <Reveal variant="x" delayMs={240} className="mt-8">
           {/* Seksi tertutup secara default; dibuka lewat accordion (US-12). */}
           <div className="card overflow-hidden">
             <button

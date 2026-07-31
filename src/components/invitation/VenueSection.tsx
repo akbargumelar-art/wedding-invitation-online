@@ -27,7 +27,7 @@ export function VenueSection({ config }: { config: SiteConfig }) {
 
         <DaunDivider className="mt-4" />
 
-        <Reveal className="mt-8">
+        <Reveal variant="x" delayMs={240} className="mt-8">
           <div className="card px-6 py-7 text-center">
             <h3 className="font-display text-2xl text-jade-900">{config.venueNama}</h3>
 
@@ -66,7 +66,7 @@ export function VenueSection({ config }: { config: SiteConfig }) {
         </Reveal>
 
         {config.gmapsEmbed ? (
-          <Reveal delayMs={120} className="mt-6">
+          <Reveal variant="x" delayMs={360} className="mt-6">
             <LazyMap embedUrl={config.gmapsEmbed} venueName={config.venueNama} />
           </Reveal>
         ) : null}

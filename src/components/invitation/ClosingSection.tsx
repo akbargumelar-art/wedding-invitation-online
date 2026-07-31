@@ -35,7 +35,7 @@ export function ClosingSection({ config }: { config: SiteConfig }) {
       />
 
       <div className="container-invite relative section text-center">
-        <Reveal>
+        <Reveal variant="x" delayMs={240}>
           <StarOrnament size={36} className="mx-auto text-gold-300" />
 
           {config.kalimatPenutup ? (
