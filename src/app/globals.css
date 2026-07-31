@@ -858,6 +858,25 @@
     transform: none;
   }
 
+  /* Di mode gulir, IntersectionObserver kadang tidak menyalakan
+     data-visible='true' untuk section yang sudah masuk viewport sejak awal
+     (race saat mount). Efeknya: card `.reveal-x` tetap tergeser 16-28px ke
+     kiri (section ganjil) atau kanan (section genap) — bug "isi tidak
+     center" yang dilaporkan.
+
+     Solusi minimal: di mode gulir, nolkan translasi horizontalnya. Card
+     tetap animate slide-up 14px saat data-visible='true' flip. Kalau
+     observer tidak fire pun, card tetap terlihat rata tengah — cuma tidak
+     animate. Di mode buku, translateX asli tetap jalan karena section
+     render satu-per-satu, race tidak terjadi. */
+  .book-root[data-view='scroll'] .book-page .reveal-x {
+    transform: translate3d(0, 14px, 0) !important;
+  }
+
+  .book-root[data-view='scroll'] .book-page .reveal-x[data-visible='true'] {
+    transform: none !important;
+  }
+
   /* Animasi masuk hanya berlaku di mode gulir.
      Di mode buku, transisinya adalah lipatan halaman itu sendiri — menjalankan
      keduanya sekaligus bukan cuma ramai, tetapi juga memindahkan isi lembar
