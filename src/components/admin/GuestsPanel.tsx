@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import { deleteJson, postJson, putJson } from '@/lib/client-api';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { formatPhone } from '@/lib/text';
-import type { AdminWhatsapp } from '@/lib/admin-data';
+import { formatPax } from '@/lib/validation';
+import type { AdminWhatsapp, GuestRsvpState } from '@/lib/admin-data';
 import type { GuestRow } from '@/lib/db/content';
 import type { GuestSendState } from '@/lib/db/outbox';
 import {
@@ -27,16 +28,31 @@ import {
  * dashboard ini lebih lambat daripada spreadsheet yang digantikannya.
  *
  * Di sini pula undangan dikirim — satuan lewat tombol per baris, atau massal
- * lewat pilihan di atas daftar.
+ * lewat pilihan di atas daftar — dan status konfirmasi kehadiran ditampilkan.
+ * Ketiganya sengaja berada di satu tempat: menjelang hari-H, yang dibutuhkan
+ * bersamaan adalah siapa yang belum menjawab DAN nomor mana yang harus dihubungi.
  */
+
+type Saringan = 'semua' | 'sudah' | 'belum' | 'hadir' | 'tidak_hadir';
+
+const SARINGAN: Array<{ id: Saringan; label: string }> = [
+  { id: 'semua', label: 'Semua' },
+  { id: 'sudah', label: 'Sudah konfirmasi' },
+  { id: 'belum', label: 'Belum konfirmasi' },
+  { id: 'hadir', label: 'Hadir' },
+  { id: 'tidak_hadir', label: 'Tidak hadir' },
+];
+
 export function GuestsPanel({
   rows,
   siteUrl,
   whatsapp,
+  rsvpBySlug,
 }: {
   rows: GuestRow[];
   siteUrl: string;
   whatsapp: AdminWhatsapp;
+  rsvpBySlug: Record<string, GuestRsvpState>;
 }) {
   const { run, notice, setNotice, busy } = useAdminAction();
   const [query, setQuery] = useState('');
@@ -44,19 +60,31 @@ export function GuestsPanel({
   const [importText, setImportText] = useState('');
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [saringan, setSaringan] = useState<Saringan>('semua');
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return rows;
 
-    return rows.filter(
-      (row) =>
+    return rows.filter((row) => {
+      const rsvp = rsvpBySlug[row.slug];
+
+      if (saringan === 'sudah' && !rsvp) return false;
+      if (saringan === 'belum' && rsvp) return false;
+      if (saringan === 'hadir' && rsvp?.status !== 'hadir') return false;
+      if (saringan === 'tidak_hadir' && rsvp?.status !== 'tidak_hadir') return false;
+
+      if (!needle) return true;
+
+      return (
         row.nama.toLowerCase().includes(needle) ||
         row.slug.includes(needle) ||
         row.telepon.includes(needle.replace(/\D/g, '')) ||
-        row.kategori.toLowerCase().includes(needle),
-    );
-  }, [rows, query]);
+        row.kategori.toLowerCase().includes(needle)
+      );
+    });
+  }, [rows, query, saringan, rsvpBySlug]);
+
+  const sudahRsvp = rows.filter((row) => rsvpBySlug[row.slug] !== undefined).length;
 
   const belumTerkirim = rows.filter(
     (row) => row.telepon !== '' && whatsapp.sendState[String(row.id)]?.status !== 'sent',
@@ -110,7 +138,7 @@ export function GuestsPanel({
     <section aria-label="Daftar tamu">
       <PanelHeading
         title={`Tamu (${rows.length})`}
-        description={`${whatsapp.guestsWithPhone} dari ${rows.length} tamu sudah punya nomor WhatsApp.`}
+        description={`${sudahRsvp} dari ${rows.length} tamu sudah konfirmasi kehadiran · ${whatsapp.guestsWithPhone} punya nomor WhatsApp.`}
         action={
           <div className="flex flex-wrap gap-2">
             <ActionButton onClick={() => setImporting((value) => !value)}>
@@ -225,6 +253,25 @@ export function GuestsPanel({
             onChange={setQuery}
             placeholder="Nama, slug, nomor, atau kategori"
           />
+
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Saring menurut konfirmasi">
+            {SARINGAN.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSaringan(item.id)}
+                aria-pressed={saringan === item.id}
+                className={[
+                  'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                  saringan === item.id
+                    ? 'bg-jade-700 text-cream'
+                    : 'bg-jade-50 text-jade-800 hover:bg-jade-100',
+                ].join(' ')}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -237,7 +284,7 @@ export function GuestsPanel({
 
         {rows.length > 0 && filtered.length === 0 ? (
           <li className="card px-5 py-8 text-center text-sm text-ink-muted">
-            Tidak ada tamu yang cocok dengan “{query}”.
+            Tidak ada tamu yang cocok dengan saringan ini.
           </li>
         ) : null}
 
@@ -250,6 +297,7 @@ export function GuestsPanel({
               selected={selected.has(row.id)}
               selectable={whatsapp.settings.enabled && row.telepon !== ''}
               sendState={whatsapp.sendState[String(row.id)] ?? null}
+              rsvp={rsvpBySlug[row.slug] ?? null}
               canSend={whatsapp.settings.enabled && row.telepon !== ''}
               onToggle={() => toggle(row.id)}
               onSend={async () => {
@@ -284,6 +332,34 @@ export function GuestsPanel({
 
 type Draft = { nama: string; slug: string; kategori: string; telepon: string };
 
+function RsvpBadge({ rsvp }: { rsvp: GuestRsvpState | null }) {
+  if (!rsvp) {
+    return (
+      <span className="rounded-full bg-jade-50 px-3 py-1 text-xs font-semibold text-ink-muted">
+        Belum konfirmasi
+      </span>
+    );
+  }
+
+  const labels: Record<string, string> = {
+    hadir: `Hadir · ${formatPax(rsvp.pax)}`,
+    tidak_hadir: 'Tidak hadir',
+    ragu: 'Masih ragu',
+  };
+
+  const tones: Record<string, string> = {
+    hadir: 'bg-success/12 text-success',
+    tidak_hadir: 'bg-danger/10 text-danger',
+    ragu: 'bg-gold-300/30 text-gold-600',
+  };
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tones[rsvp.status] ?? ''}`}>
+      {labels[rsvp.status] ?? rsvp.status}
+    </span>
+  );
+}
+
 function SendBadge({ state }: { state: GuestSendState | null }) {
   if (!state) return null;
 
@@ -315,6 +391,7 @@ function GuestCard({
   selected,
   selectable,
   sendState,
+  rsvp,
   canSend,
   onToggle,
   onSend,
@@ -327,6 +404,7 @@ function GuestCard({
   selected: boolean;
   selectable: boolean;
   sendState: GuestSendState | null;
+  rsvp: GuestRsvpState | null;
   canSend: boolean;
   onToggle: () => void;
   onSend: () => Promise<void>;
@@ -373,6 +451,7 @@ function GuestCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-ink break-words">{row.nama}</p>
+            <RsvpBadge rsvp={rsvp} />
             <SendBadge state={sendState} />
           </div>
 
@@ -381,6 +460,10 @@ function GuestCard({
             {row.telepon ? formatPhone(row.telepon) : 'tanpa nomor WhatsApp'}
           </p>
           <p className="text-xs text-ink-muted break-all">{link}</p>
+
+          {rsvp?.message ? (
+            <p className="mt-1 text-xs text-ink-soft break-words italic">“{rsvp.message}”</p>
+          ) : null}
 
           {sendState?.status === 'failed' && sendState.lastError ? (
             <p className="mt-1 text-xs text-danger break-words">{sendState.lastError}</p>

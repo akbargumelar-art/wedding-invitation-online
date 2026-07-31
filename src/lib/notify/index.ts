@@ -10,17 +10,35 @@ import {
   pruneNotifications,
   type NotificationRow,
 } from '@/lib/db/notifications';
-import { activeChannel, deliver, isNotifyConfigured } from './drivers';
+import { activeChannel as envChannel, deliver as deliverViaEnv, isNotifyConfigured } from './drivers';
+import { deliverViaWaha, isWahaNotifyReady, wahaNotifyEvents } from './waha-channel';
 import { retryDelaySeconds } from './backoff';
 import type { NotificationPayload } from './types';
 
 export type { NotificationPayload } from './types';
-export { isNotifyConfigured, activeChannel } from './drivers';
+export { isNotifyConfigured } from './drivers';
+
+/**
+ * Saluran pemberitahuan yang benar-benar dipakai.
+ *
+ * Dashboard didahulukan: bila mempelai sudah mengisi nomor penerima di tab
+ * WhatsApp, itulah niat yang paling jelas terbaca. Berkas env tetap dihormati
+ * sebagai cadangan, sehingga pemasangan lama yang memakai Fonnte, Cloud API,
+ * atau webhook tidak berubah perilakunya.
+ */
+export function activeChannel(): string {
+  return isWahaNotifyReady() ? 'waha' : envChannel();
+}
+
+/** Peristiwa yang diberitahukan, mengikuti saluran yang sedang aktif. */
+export function enabledEvents(): string[] {
+  return isWahaNotifyReady() ? wahaNotifyEvents() : env.notify.events;
+}
 export { buildMessage, notificationTitle, templateParameters } from './templates';
 export { retryDelaySeconds } from './backoff';
 
 function isEventEnabled(event: NotificationPayload['event']): boolean {
-  return env.notify.events.includes(event);
+  return enabledEvents().includes(event);
 }
 
 /**
@@ -37,7 +55,9 @@ export function notify(payload: NotificationPayload): void {
   try {
     if (activeChannel() === 'off' || !isEventEnabled(payload.event)) return;
 
-    if (!isNotifyConfigured()) {
+    // Saluran dashboard tidak punya konfigurasi environment untuk diperiksa;
+    // kesiapannya sudah dipastikan oleh activeChannel() di atas.
+    if (activeChannel() !== 'waha' && !isNotifyConfigured()) {
       logger.warn('notify.not_configured', { channel: activeChannel(), event: payload.event });
       return;
     }
@@ -69,7 +89,8 @@ async function attemptDelivery(row: NotificationRow): Promise<boolean> {
   }
 
   try {
-    const result = await deliver(payload);
+    const result =
+      activeChannel() === 'waha' ? await deliverViaWaha(payload) : await deliverViaEnv(payload);
 
     if (result.ok) {
       markSent(row.id);

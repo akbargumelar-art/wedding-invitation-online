@@ -58,6 +58,14 @@ export type AdminContent = {
   accounts: AccountRow[];
   guests: GuestRow[];
   media: MediaRow[];
+  /**
+   * Jawaban RSVP tamu, berkunci slug.
+   *
+   * Disatukan ke tab Tamu supaya "siapa yang belum menjawab" terbaca di tempat
+   * yang sama dengan nomor WhatsApp mereka — itulah dua hal yang dibutuhkan
+   * bersamaan saat menagih konfirmasi menjelang hari-H.
+   */
+  rsvpBySlug: Record<string, GuestRsvpState>;
   /** Dipakai menyusun link undangan yang disalin admin. */
   siteUrl: string;
 };
@@ -73,6 +81,14 @@ export type AdminWhatsapp = {
   nextSendInSeconds: number;
   /** Jumlah tamu yang sudah punya nomor — dasar tombol kirim massal. */
   guestsWithPhone: number;
+};
+
+/** Jawaban RSVP per tamu, berkunci slug — dasar penanda di tab Tamu. */
+export type GuestRsvpState = {
+  status: RsvpRow['status'];
+  pax: number;
+  message: string | null;
+  updatedAt: string;
 };
 
 export type AdminData = {
@@ -106,6 +122,21 @@ export async function loadAdminSummary(): Promise<AdminSummary> {
 export async function loadAdminContent(): Promise<AdminContent> {
   const content = await getFreshContent();
 
+  const rsvpBySlug: Record<string, GuestRsvpState> = {};
+  for (const row of listRsvp()) {
+    // Kiriman dari link umum tidak punya slug dan karena itu tidak dapat
+    // dipetakan ke satu tamu — ia tetap terhitung di ringkasan, hanya tidak
+    // muncul sebagai penanda pada baris tamu mana pun.
+    if (!row.guest_slug) continue;
+
+    rsvpBySlug[row.guest_slug] = {
+      status: row.status,
+      pax: row.pax,
+      message: row.message,
+      updatedAt: row.updated_at,
+    };
+  }
+
   return {
     config: content.config,
     schedule: listSchedule(),
@@ -113,6 +144,7 @@ export async function loadAdminContent(): Promise<AdminContent> {
     accounts: listAccounts(),
     guests: listGuests(),
     media: listMedia(),
+    rsvpBySlug,
     siteUrl: env.siteUrl,
   };
 }

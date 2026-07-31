@@ -297,4 +297,29 @@ describe('wahaSettingsSchema', () => {
   it('menolak templat pesan kosong', () => {
     expect(() => wahaSettingsSchema.parse({ ...base, invitationTemplate: '   ' })).toThrow();
   });
+
+  it('menormalkan nomor penerima notifikasi apa pun bentuk tulisannya', () => {
+    const parsed = wahaSettingsSchema.parse({
+      ...base,
+      notifyRecipients: '0812-3456-7890\n+62 899 8888 777, 081211112222',
+    });
+
+    expect(parsed.notifyRecipients).toEqual([
+      '6281234567890',
+      '628998888777',
+      '6281211112222',
+    ]);
+  });
+
+  it('memperlakukan daftar penerima kosong sebagai notifikasi dimatikan', () => {
+    expect(wahaSettingsSchema.parse({ ...base, notifyRecipients: '' }).notifyRecipients).toEqual([]);
+  });
+
+  it('memakai peristiwa bawaan bila tidak disebut', () => {
+    expect(wahaSettingsSchema.parse(base).notifyEvents).toEqual(['rsvp', 'wish', 'envelope']);
+  });
+
+  it('menolak nama peristiwa yang tidak dikenal', () => {
+    expect(() => wahaSettingsSchema.parse({ ...base, notifyEvents: ['rsvp', 'ngawur'] })).toThrow();
+  });
 });

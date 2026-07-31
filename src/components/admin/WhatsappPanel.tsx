@@ -36,7 +36,20 @@ type Draft = {
   acceptReplies: boolean;
   minDelaySeconds: number;
   maxDelaySeconds: number;
+  notifyRecipients: string;
+  notifyEvents: string[];
 };
+
+const EVENT_LABELS: Array<{ id: string; label: string; hint: string }> = [
+  { id: 'rsvp', label: 'Konfirmasi kehadiran', hint: 'Setiap tamu mengisi atau mengubah RSVP.' },
+  { id: 'wish', label: 'Ucapan & doa', hint: 'Setiap ucapan baru masuk.' },
+  { id: 'envelope', label: 'Konfirmasi amplop', hint: 'Setiap tamu menyatakan sudah mengirim tanda kasih.' },
+  {
+    id: 'visit',
+    label: 'Undangan dibuka',
+    hint: 'Sangat ramai — satu pesan tiap tamu membuka undangannya pertama kali.',
+  },
+];
 
 type QueueState = AdminWhatsapp['outbox'];
 
@@ -55,6 +68,8 @@ export function WhatsappPanel({ data }: { data: AdminWhatsapp }) {
     acceptReplies: settings.acceptReplies,
     minDelaySeconds: settings.minDelaySeconds,
     maxDelaySeconds: settings.maxDelaySeconds,
+    notifyRecipients: settings.notifyRecipients.join('\n'),
+    notifyEvents: settings.notifyEvents,
   });
 
   const [freshSecret, setFreshSecret] = useState('');
@@ -275,6 +290,70 @@ export function WhatsappPanel({ data }: { data: AdminWhatsapp }) {
           disabled={busy('waha-settings')}
           onChange={(value) => set('maxDelaySeconds', Number.parseInt(value, 10) || 0)}
         />
+      </FieldGroup>
+
+      <FieldGroup
+        title="Notifikasi ke mempelai"
+        description="Pemberitahuan yang dikirim ke nomor Anda sendiri saat tamu mengisi undangan. Memakai sambungan WAHA yang sama dengan pengiriman undangan."
+        columns={1}
+      >
+        <TextAreaField
+          label="Nomor penerima notifikasi"
+          value={draft.notifyRecipients}
+          rows={3}
+          disabled={busy('waha-settings')}
+          onChange={(value) => set('notifyRecipients', value)}
+          placeholder={'081234567890\n081298765432'}
+          hint="Satu nomor per baris, atau dipisah koma. Bentuk apa pun diterima — dirapikan otomatis. Kosongkan untuk mematikan notifikasi."
+        />
+
+        <div>
+          <p className="field-label">Kirim pemberitahuan untuk</p>
+          <div className="mt-2 space-y-3">
+            {EVENT_LABELS.map((event) => (
+              <Toggle
+                key={event.id}
+                label={event.label}
+                checked={draft.notifyEvents.includes(event.id)}
+                disabled={busy('waha-settings')}
+                hint={event.hint}
+                onChange={(checked) =>
+                  set(
+                    'notifyEvents',
+                    checked
+                      ? [...draft.notifyEvents, event.id]
+                      : draft.notifyEvents.filter((id) => id !== event.id),
+                  )
+                }
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <ActionButton
+            disabled={busy('waha-test-notify')}
+            onClick={() =>
+              void run('waha-test-notify', () =>
+                postJson<{ sent: number; message: string }>(
+                  '/api/admin/whatsapp/test-notify',
+                  {},
+                  csrfHeaders(),
+                ),
+              ).then((result) => {
+                if (result) {
+                  setNotice({ tone: result.sent > 0 ? 'ok' : 'error', text: result.message });
+                }
+              })
+            }
+          >
+            {busy('waha-test-notify') ? 'Mengirim…' : 'Kirim notifikasi uji'}
+          </ActionButton>
+          <p className="field-hint">
+            Simpan pengaturan lebih dulu. Tes koneksi hanya memastikan server WAHA menjawab; ini
+            membuktikan pesannya benar-benar sampai ke nomor Anda.
+          </p>
+        </div>
       </FieldGroup>
 
       <QueueCard

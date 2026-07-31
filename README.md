@@ -247,7 +247,7 @@ tampil pada permintaan berikutnya.
 | **Jadwal** | Rangkaian acara: akad, resepsi, syukuran |
 | **Galeri** | Foto beserta urutan tampilnya |
 | **Rekening** | Nomor rekening penerima hadiah |
-| **Tamu** | Daftar tamu, link personal masing-masing, impor massal |
+| **Tamu** | Daftar tamu, link personal, nomor WhatsApp, status konfirmasi kehadiran, impor massal |
 | **Media** | Berkas gambar yang sudah diunggah |
 | **Ucapan** / **Amplop** | Moderasi ucapan dan verifikasi konfirmasi amplop |
 
@@ -275,6 +275,12 @@ Slug link dibuat otomatis dari nama, dan nama yang slug-nya sudah ada **diperbar
 alih-alih digandakan — jadi menempel ulang daftar yang sudah diperbaiki tidak pernah
 mematikan link yang sudah tersebar. Tombol **Salin link** di tiap baris menyiapkan
 alamat yang tinggal dikirim ke tamu.
+
+Tiap baris juga menampilkan **status konfirmasi kehadiran** tamu itu — hadir
+beserta jumlah orangnya, tidak hadir, masih ragu, atau belum menjawab — beserta
+pesan yang ia tulis. Penyaring di atas daftar mempersempitnya ke *Belum
+konfirmasi* atau *Hadir*. Status dan nomor WhatsApp sengaja berada di satu
+layar: menjelang hari-H, keduanya dibutuhkan bersamaan untuk menagih konfirmasi.
 
 ### Gambar
 
@@ -567,8 +573,8 @@ npm run hash-password -- "kata sandi panjang Anda"   # ADMIN_PASSWORD_HASH
 
 | Lapisan | Perintah | Cakupan |
 |---|---|---|
-| Unit (Vitest) | `npm test` | 270 tes — parser konten, round-trip pengaturan dashboard, impor massal tamu, normalisasi nomor WhatsApp, parser balasan tamu, jeda acak pengiriman, slug, validator, countdown & timezone, ICS, magic bytes upload, template notifikasi, keempat driver pengiriman, serta kontras seluruh pasangan warna tema. |
-| E2E + integrasi API (Playwright) | `npm run test:e2e` | 86 tes — seluruh 12 skenario Lampiran C, penyuntingan isi undangan lewat dashboard sampai terlihat tamu, pengiriman undangan lewat WAHA tiruan beserta bukti adanya jeda antar-pesan, penolakan webhook tanpa tanda tangan, kontrak API (201/403/413/422/429), kontrol akses admin, notifikasi keluar, audit responsif, hidrasi tanpa error, serta navigasi mode buku dan peralihan tampilan. |
+| Unit (Vitest) | `npm test` | 274 tes — parser konten, round-trip pengaturan dashboard, impor massal tamu, normalisasi nomor WhatsApp, parser balasan tamu, jeda acak pengiriman, slug, validator, countdown & timezone, ICS, magic bytes upload, template notifikasi, keempat driver pengiriman, serta kontras seluruh pasangan warna tema. |
+| E2E + integrasi API (Playwright) | `npm run test:e2e` | 91 tes — seluruh 12 skenario Lampiran C, penyuntingan isi undangan lewat dashboard sampai terlihat tamu, pengiriman undangan lewat WAHA tiruan beserta bukti adanya jeda antar-pesan, penolakan webhook tanpa tanda tangan, kontrak API (201/403/413/422/429), kontrol akses admin, notifikasi keluar, audit responsif, hidrasi tanpa error, serta navigasi mode buku dan peralihan tampilan. |
 
 E2E menjalankan **paket standalone** (`node .next/standalone/server.js`), berkas yang
 sama persis dengan yang dijalankan systemd di VPS — bukan `next start`. Perbedaannya
@@ -808,6 +814,28 @@ Beberapa hal yang sudah ditangani dan tidak perlu dijaga manual:
 
 Progres, pembatalan sisa antrean, dan percobaan ulang yang gagal ada di tab
 **WhatsApp**.
+
+### Pemberitahuan ke mempelai
+
+Nomor mempelai diisi di tab **WhatsApp**, bagian *Notifikasi ke mempelai* — satu
+nomor per baris. Setiap tamu mengisi RSVP, mengirim ucapan, atau mengonfirmasi
+amplop, pemberitahuan dikirim ke nomor itu lewat sambungan WAHA yang sama.
+
+Jenis peristiwa dapat dipilih satu per satu. *Undangan dibuka* sengaja mati
+secara bawaan: satu pesan tiap tamu membuka undangannya adalah yang paling cepat
+membuat orang mematikan seluruh notifikasi.
+
+Tombol **Kirim notifikasi uji** membuktikan pesannya benar-benar sampai. Itu
+berbeda dari *Tes koneksi*, yang hanya memastikan server WAHA menjawab — sesi
+yang sehat tetap gagal mengirim ke nomor yang salah ketik, dan kegagalan itu
+baru ketahuan saat RSVP pertama masuk kalau tidak diuji lebih dulu.
+
+> Sebelum versi ini, jalur pemberitahuan hanya dapat diatur lewat `NOTIFY_*` di
+> berkas env server, terpisah dari tab WhatsApp. Akibatnya mengatur WhatsApp di
+> dashboard tidak pernah membuat satu pun notifikasi terkirim, tanpa galat apa
+> pun yang menjelaskan. Variabel `NOTIFY_*` masih dihormati sebagai cadangan —
+> berguna bila Anda memakai Fonnte, Cloud API, atau webhook — tetapi begitu
+> nomor penerima diisi di dashboard, jalur itulah yang dipakai.
 
 ### Menerima balasan tamu
 

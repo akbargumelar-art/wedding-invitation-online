@@ -4,7 +4,9 @@ import { createServer, type Server } from 'node:http';
 import {
   addGuestWithPhone,
   clearOutbox,
+  clearRateLimits,
   configureWaha,
+  ensureSeeded,
   loginAsAdmin,
   openAdminTab,
 } from './helpers';
@@ -33,6 +35,9 @@ const WAHA_URL = `http://127.0.0.1:${WAHA_PORT}`;
 
 const TAMU = { nama: 'Keluarga Bapak Sanusi', slug: 'keluarga-bapak-sanusi', telepon: '6281200000001' };
 
+/** Nomor mempelai — tujuan pemberitahuan saat tamu mengisi undangan. */
+const MEMPELAI = '6281299999999';
+
 type SentMessage = { chatId: string; text: string; at: number };
 
 const sent: SentMessage[] = [];
@@ -40,7 +45,12 @@ let server: Server;
 
 test.describe.configure({ mode: 'serial' });
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ request }) => {
+  // Berkas ini menulis langsung ke database sebelum tes pertama berjalan. Bila
+  // dijalankan sendirian, servernya belum pernah menyentuh database sama sekali
+  // dan tabelnya belum ada — jadi ia dipanaskan lebih dulu.
+  await ensureSeeded(request);
+
   server = createServer((req, res) => {
     let body = '';
     req.on('data', (chunk) => {
@@ -77,6 +87,7 @@ test.beforeAll(async () => {
     // berjalan berjam-jam. Yang diuji adalah ADANYA jeda, bukan angkanya.
     minDelaySeconds: 5,
     maxDelaySeconds: 5,
+    notifyRecipients: [MEMPELAI],
   });
 
   await addGuestWithPhone(TAMU.nama, TAMU.slug, TAMU.telepon);
@@ -241,6 +252,60 @@ test('nomor di luar daftar tamu tidak dapat menulis apa pun', async ({ request }
 
   expect(response.status()).toBe(200);
   expect((await response.json()).action).toBe('ignored');
+});
+
+/**
+ * Pemberitahuan ke mempelai dulu hanya dapat diatur lewat berkas env di server,
+ * terpisah dari tab WhatsApp — dan bawaannya `off`. Akibatnya mengatur WhatsApp
+ * di dashboard tidak pernah membuat satu pun notifikasi terkirim, tanpa galat
+ * apa pun yang muncul. Pengujian ini menjaga agar jalurnya tetap menyatu.
+ */
+test('RSVP dari halaman undangan memicu pemberitahuan ke nomor mempelai', async ({ request }) => {
+  sent.length = 0;
+  await clearRateLimits();
+
+  const response = await request.post('/api/rsvp', {
+    data: { slug: TAMU.slug, name: TAMU.nama, status: 'hadir', pax: 2 },
+  });
+
+  expect(response.status()).toBe(201);
+
+  // Notifikasi dikirim setelah respons tamu diberikan, jadi belum tentu sampai
+  // saat POST kembali.
+  await expect
+    .poll(() => sent.filter((item) => item.chatId === `${MEMPELAI}@c.us`).length, {
+      timeout: 15_000,
+      intervals: [500],
+    })
+    .toBeGreaterThanOrEqual(1);
+
+  const notifikasi = sent.find((item) => item.chatId === `${MEMPELAI}@c.us`);
+
+  expect(notifikasi?.text).toContain(TAMU.nama);
+  expect(notifikasi?.text.toLowerCase()).toContain('hadir');
+});
+
+test('ucapan dari halaman undangan juga memicu pemberitahuan', async ({ request }) => {
+  sent.length = 0;
+  await clearRateLimits();
+
+  const response = await request.post('/api/wishes', {
+    data: {
+      slug: TAMU.slug,
+      name: TAMU.nama,
+      message: 'Barakallahu lakuma, semoga sakinah mawaddah warahmah.',
+      elapsedMs: 5000,
+    },
+  });
+
+  expect(response.status()).toBe(201);
+
+  await expect
+    .poll(() => sent.filter((item) => item.chatId === `${MEMPELAI}@c.us`).length, {
+      timeout: 15_000,
+      intervals: [500],
+    })
+    .toBeGreaterThanOrEqual(1);
 });
 
 test('ucapan lewat WhatsApp masuk ke buku ucapan', async ({ request }) => {

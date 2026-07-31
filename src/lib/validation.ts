@@ -538,6 +538,32 @@ export const wahaSettingsSchema = z
       .int('Jeda harus bilangan bulat.')
       .min(MIN_BROADCAST_DELAY, `Jeda minimal ${MIN_BROADCAST_DELAY} detik.`)
       .max(3600, 'Jeda maksimal 3600 detik.'),
+
+    /**
+     * Nomor penerima notifikasi, ditulis bebas dalam satu kolom — dipisah koma
+     * atau baris baru. Masing-masing dinormalkan seperti nomor tamu, sehingga
+     * bentuk apa pun yang ditempel dari kontak ponsel tetap sampai.
+     */
+    notifyRecipients: z.preprocess(
+      (value) => {
+        if (Array.isArray(value)) return value.map(String);
+        if (typeof value !== 'string') return [];
+
+        return value
+          .split(/[\n,;]+/)
+          .map((entry) => normalizePhone(entry))
+          .filter(Boolean);
+      },
+      z
+        .array(z.string().regex(/^\d{9,20}$/, 'Ada nomor penerima yang tidak valid.'))
+        .max(20, 'Maksimal 20 nomor penerima.')
+        .default([]),
+    ),
+    notifyEvents: z
+      .array(z.enum(['rsvp', 'wish', 'envelope', 'visit']))
+      .max(4)
+      .optional()
+      .default(['rsvp', 'wish', 'envelope']),
   })
   .refine((value) => value.maxDelaySeconds >= value.minDelaySeconds, {
     // Rentang terbalik menghasilkan jeda yang tidak pernah acak, dan itu

@@ -31,7 +31,22 @@ export type WahaSettings = {
   /** Rentang jeda acak antar-pengiriman massal, dalam detik. */
   minDelaySeconds: number;
   maxDelaySeconds: number;
+
+  /**
+   * Nomor mempelai/panitia yang menerima pemberitahuan saat tamu mengisi RSVP,
+   * mengirim ucapan, atau mengonfirmasi amplop.
+   *
+   * Memakai sambungan WAHA yang sama dengan pengiriman undangan. Sebelumnya
+   * jalur ini hanya dapat diatur lewat berkas env di server, terpisah dari tab
+   * WhatsApp — dan akibatnya mengatur WhatsApp di dashboard tidak pernah
+   * membuat satu pun notifikasi terkirim.
+   */
+  notifyRecipients: string[];
+  /** Peristiwa yang diberitahukan: rsvp, wish, envelope, visit. */
+  notifyEvents: string[];
 };
+
+export const NOTIFY_EVENTS = ['rsvp', 'wish', 'envelope', 'visit'] as const;
 
 export { INVITATION_PLACEHOLDERS } from './message';
 
@@ -58,6 +73,11 @@ export const DEFAULTS: WahaSettings = {
   acceptReplies: true,
   minDelaySeconds: DEFAULT_MIN_DELAY,
   maxDelaySeconds: DEFAULT_MAX_DELAY,
+  notifyRecipients: [],
+  // Kunjungan sengaja TIDAK aktif secara bawaan: satu undangan yang dibuka
+  // berkali-kali oleh orang yang sama menghasilkan pesan yang paling cepat
+  // membuat mempelai mematikan seluruh notifikasi.
+  notifyEvents: ['rsvp', 'wish', 'envelope'],
 };
 
 const KEYS = {
@@ -71,7 +91,18 @@ const KEYS = {
   acceptReplies: 'waha_accept_replies',
   minDelaySeconds: 'waha_min_delay',
   maxDelaySeconds: 'waha_max_delay',
+  notifyRecipients: 'waha_notify_recipients',
+  notifyEvents: 'waha_notify_events',
 } as const;
+
+/** Daftar dipisah koma di database; kosong berarti daftar kosong, bukan default. */
+function toList(raw: string | undefined, fallback: string[]): string[] {
+  if (raw === undefined) return fallback;
+  return raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
 
 function toBool(raw: string | undefined, fallback: boolean): boolean {
   if (raw === undefined || raw === '') return fallback;
@@ -104,6 +135,8 @@ export function readWahaSettings(): WahaSettings {
     // Maksimum tidak pernah boleh di bawah minimum: kalau tertukar, jeda acak
     // akan menghasilkan rentang kosong dan pengiriman berubah jadi beruntun.
     maxDelaySeconds: Math.max(min, toInt(map[KEYS.maxDelaySeconds], DEFAULT_MAX_DELAY)),
+    notifyRecipients: toList(map[KEYS.notifyRecipients], DEFAULTS.notifyRecipients),
+    notifyEvents: toList(map[KEYS.notifyEvents], DEFAULTS.notifyEvents),
   };
 }
 
@@ -119,12 +152,19 @@ export function writeWahaSettings(settings: WahaSettings): void {
     [KEYS.acceptReplies]: settings.acceptReplies ? 'TRUE' : 'FALSE',
     [KEYS.minDelaySeconds]: String(settings.minDelaySeconds),
     [KEYS.maxDelaySeconds]: String(settings.maxDelaySeconds),
+    [KEYS.notifyRecipients]: settings.notifyRecipients.join(','),
+    [KEYS.notifyEvents]: settings.notifyEvents.join(','),
   });
 }
 
 /** True bila pengiriman benar-benar dapat dilakukan. */
 export function isWahaReady(settings: WahaSettings): boolean {
   return settings.enabled && settings.baseUrl !== '' && settings.session !== '';
+}
+
+/** True bila notifikasi ke mempelai dapat dikirim lewat sambungan ini. */
+export function canNotifyViaWaha(settings: WahaSettings): boolean {
+  return isWahaReady(settings) && settings.notifyRecipients.length > 0;
 }
 
 /**

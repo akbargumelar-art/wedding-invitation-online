@@ -159,7 +159,12 @@ export function AdminDashboard({ data, username }: { data: AdminData; username: 
         {tab === 'galeri' ? <GalleryPanel rows={content.gallery} /> : null}
         {tab === 'rekening' ? <AccountsPanel rows={content.accounts} /> : null}
         {tab === 'tamu' ? (
-          <GuestsPanel rows={content.guests} siteUrl={content.siteUrl} whatsapp={whatsapp} />
+          <GuestsPanel
+            rows={content.guests}
+            siteUrl={content.siteUrl}
+            whatsapp={whatsapp}
+            rsvpBySlug={content.rsvpBySlug}
+          />
         ) : null}
         {tab === 'whatsapp' ? <WhatsappPanel data={whatsapp} /> : null}
         {tab === 'media' ? <MediaPanel rows={content.media} /> : null}

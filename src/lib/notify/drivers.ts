@@ -16,16 +16,40 @@ import type { DeliveryResult, NotificationPayload } from './types';
  *  - `whatsapp_gateway`  Gateway berbasis chatId (WAHA, whatsapp-web.js) —
  *                        satu-satunya yang bisa mengirim ke grup WhatsApp.
  *
+ * Di ATAS semuanya ada satu saluran yang tidak diatur lewat environment sama
+ * sekali: `waha`, memakai sambungan yang sudah dikonfigurasi di tab WhatsApp
+ * dashboard. Ia dipilih lebih dulu bila nomor penerimanya sudah diisi di sana.
+ *
+ * Pemisahan itu dulu menjadi jebakan: mempelai mengatur WhatsApp di dashboard,
+ * mengira seluruh WhatsApp sudah diurus, padahal notifikasi RSVP membaca berkas
+ * env yang bawaannya `off` — tidak ada satu pun pesan terkirim, dan tidak ada
+ * galat apa pun yang muncul.
+ *
  * Semua driver mengembalikan `retryable` supaya pemanggil tahu mana galat
  * sementara (jaringan, 5xx, 429) dan mana yang tidak akan membaik dengan
  * mengulang (token salah, nomor tidak valid) — mengulang yang terakhir hanya
  * membuang kuota API.
  */
 
-export type Channel = 'off' | 'webhook' | 'whatsapp_cloud' | 'fonnte' | 'whatsapp_gateway';
+export type Channel =
+  | 'off'
+  | 'waha'
+  | 'webhook'
+  | 'whatsapp_cloud'
+  | 'fonnte'
+  | 'whatsapp_gateway';
 
 const CHANNELS: readonly Channel[] = ['webhook', 'whatsapp_cloud', 'fonnte', 'whatsapp_gateway'];
 
+/**
+ * Saluran yang dipilih lewat environment.
+ *
+ * Modul ini sengaja TIDAK tahu apa-apa tentang pengaturan dashboard: begitu ia
+ * mengimpor lapisan database, seluruh berkas uji yang memeriksa bentuk
+ * permintaan tiap driver ikut menyeret `server-only` dan berhenti dapat
+ * dijalankan. Penggabungan dengan saluran dashboard dilakukan satu tingkat di
+ * atas, di `notify/index.ts`.
+ */
 export function activeChannel(): Channel {
   const channel = env.notify.channel as Channel;
   return CHANNELS.includes(channel) ? channel : 'off';

@@ -64,7 +64,7 @@ function contentReady(): boolean {
  * Hanya dijalankan sekali per suite: `contentReady()` menjaga agar kuota
  * `/api/revalidate` (20 per jam) tidak terpakai percuma.
  */
-async function ensureSeeded(request: APIRequestContext): Promise<void> {
+export async function ensureSeeded(request: APIRequestContext): Promise<void> {
   if (contentReady()) return;
 
   await revalidate(request);
@@ -249,6 +249,8 @@ export async function configureWaha(settings: {
   secret: string;
   minDelaySeconds: number;
   maxDelaySeconds: number;
+  /** Nomor mempelai penerima notifikasi RSVP/ucapan/amplop. */
+  notifyRecipients?: string[];
 }): Promise<void> {
   const db = openDb();
   try {
@@ -266,6 +268,8 @@ export async function configureWaha(settings: {
     upsert.run('waha_auto_reply', 'TRUE');
     upsert.run('waha_min_delay', String(settings.minDelaySeconds));
     upsert.run('waha_max_delay', String(settings.maxDelaySeconds));
+    upsert.run('waha_notify_recipients', (settings.notifyRecipients ?? []).join(','));
+    upsert.run('waha_notify_events', 'rsvp,wish,envelope');
     // Jadwal kirim dinolkan supaya pesan pertama tidak menunggu sisa jeda dari
     // pengujian sebelumnya.
     upsert.run('waha_next_send_at', '0');
@@ -294,6 +298,24 @@ export async function addGuestWithPhone(
 
     const row = db.prepare(`SELECT id FROM guests WHERE slug = ?`).get(slug) as { id: number };
     return row.id;
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Kosongkan hitungan rate limit.
+ *
+ * Seluruh berkas uji memukul server dari 127.0.0.1 yang sama, sehingga kuota
+ * `/api/rsvp` (5 per 10 menit per IP) sudah habis dipakai berkas-berkas
+ * sebelumnya saat berkas ini berjalan. Yang direset di sini adalah keadaan
+ * harness, bukan perilaku aplikasi — pembatasannya sendiri diuji tersendiri di
+ * 02-api.spec.ts.
+ */
+export async function clearRateLimits(): Promise<void> {
+  const db = openDb();
+  try {
+    db.prepare(`DELETE FROM rate_limits`).run();
   } finally {
     db.close();
   }
