@@ -97,6 +97,26 @@ for key in NEXT_PUBLIC_SITE_URL ADMIN_PASSWORD_HASH AUTH_SECRET IP_HASH_SALT REV
 done
 [[ ${#missing[@]} -eq 0 ]] || die "nilai berikut masih kosong di ${ENV_FILE}: ${missing[*]}"
 
+# Kunci yang ditambahkan setelah sebuah versi terpasang di produksi.
+#
+# Berkas env yang sudah ada TIDAK pernah ditimpa — isinya rahasia milik
+# pemasangan itu. Tetapi kunci baru harus tetap masuk, karena nilai bawaannya
+# bersifat relatif dan akan mendarat di dalam bundel standalone: direktori itu
+# hanya-baca menurut unit systemd, dan ikut terhapus setiap deploy. Gejalanya
+# bukan galat saat boot melainkan unggahan gambar yang gagal, jauh setelah
+# pemasangan dianggap selesai.
+ensure_env_key() {
+  local key="$1" value="$2"
+
+  if grep -q "^${key}=" "$ENV_FILE"; then return 0; fi
+
+  printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+  say "Menambahkan ${key} ke ${ENV_FILE}"
+}
+
+ensure_env_key MEDIA_DIR "${DATA_ROOT}/media"
+ensure_env_key CONTENT_CACHE_TTL 300
+
 # -----------------------------------------------------------------------------
 # 4. Porta — cari yang kosong, jangan ganggu tetangga
 # -----------------------------------------------------------------------------
@@ -293,6 +313,14 @@ for attempt in 1 2 3 4 5 6 7 8 9 10; do
     say "Selesai. Walimah aktif di porta ${PORT}."
     echo "    Porta tersimpan di ${ENV_FILE} (PORT) dan ${PORT_FILE} (WALIMAH_PORT)."
     echo "    Cron: sudo crontab -e, isi dari deploy/crontab.example (jangan tulis angka porta)."
+    echo
+    echo "    Menaikkan dari versi yang isinya masih dikelola lewat Google Sheet?"
+    echo "    Isi undangan sekarang tinggal di database, dan database yang kosong"
+    echo "    disemai dari data contoh — jadi pindahkan dulu isi aslinya:"
+    echo "        npm run import-snapshot                  (pratinjau)"
+    echo "        npm run import-snapshot -- --confirm --replace"
+    echo "    Baris cron export ke Sheet sudah tidak ada; ganti isi crontab dengan"
+    echo "    deploy/crontab.example yang baru."
     echo "    Log:  journalctl -u walimah -f"
     exit 0
   fi

@@ -374,6 +374,55 @@ Windows berisi `argon2.win32-x64-msvc.node` dan mati saat boot di Ubuntu.
 [`deploy/deploy.sh`](deploy/deploy.sh) (jalur `rsync` tanpa git) tetap tersedia,
 tapi menolak berjalan dari mesin non-Linux justru karena alasan itu.
 
+### Menaikkan pemasangan yang isinya masih dari Google Sheet
+
+`install.sh` **tidak cukup** untuk kasus ini. Ia memperbarui kode, dependensi,
+direktori data, dan berkas env — tetapi tidak dapat menebak dari mana isi
+undangan Anda harus datang.
+
+Yang berubah: isi undangan tidak lagi dibaca dari Sheet melainkan dari database.
+Database yang masih kosong disemai dari `data/seed.json`, yaitu **data contoh
+bawaan repo**. Jadi bila layanan sempat menyala sebelum isi aslinya dipindahkan,
+yang dilihat tamu adalah undangan dummy.
+
+Versi lama menyimpan cermin Sheet di `SHEET_SNAPSHOT_PATH`
+(bawaan `/var/walimah/data/snapshot.json`), dan bentuknya persis yang dibutuhkan
+penyemai database. Urutan yang benar:
+
+```bash
+cd /opt/walimah
+sudo git pull
+sudo ./deploy/install.sh          # kode, dependensi, env, direktori media
+
+# Pindahkan isi undangan yang sesungguhnya.
+sudo -u walimah npm run import-snapshot                        # pratinjau dulu
+sudo -u walimah npm run import-snapshot -- --confirm --replace
+
+sudo systemctl restart walimah
+```
+
+`--replace` diperlukan karena layanan hampir pasti sudah sempat menyala dan
+menyemai data contoh. Skripnya menolak berjalan tanpa itu bila database sudah
+berisi konten — supaya tidak ada isi undangan yang tertimpa tanpa disengaja.
+
+Yang **tidak** ikut terhapus: RSVP, ucapan, konfirmasi amplop, dan statistik
+kunjungan. Ketiganya terhubung ke tamu lewat slug, dan slug yang sama terbentuk
+lagi dari snapshot.
+
+Setelah itu, tiga hal yang perlu dikerjakan sekali:
+
+1. **Perbarui crontab** — `sudo crontab -e`, salin ulang dari
+   [deploy/crontab.example](deploy/crontab.example). Baris export ke Sheet sudah
+   tidak ada, dan ada baris baru untuk antrean undangan.
+2. **Periksa dashboard** — buka `/admin`, telusuri tab Pengaturan, Jadwal,
+   Galeri, Rekening, dan Tamu. Semua sudah dapat disunting langsung di sana.
+3. **Isi nomor WhatsApp tamu** bila ingin mengirim undangan dari dashboard (§6b);
+   snapshot lama tidak memuat kolom nomor.
+
+Variabel `GOOGLE_*` dan `SHEET_*` di berkas env boleh dibiarkan — kode baru tidak
+membacanya sama sekali. Kredensial service account di `/etc/walimah/credentials.json`
+sudah tidak dipakai dan aman dihapus.
+
 ### Porta backend dipilih otomatis
 
 VPS ini menampung aplikasi lain, jadi 3000 tidak boleh diasumsikan bebas —
